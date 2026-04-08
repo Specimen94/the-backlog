@@ -18,6 +18,7 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<MediaCategory | "all">("all");
   const [sortByRating, setSortByRating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<MediaStatus | null>(null);
 
   // Filter items
   const filteredItems = useMemo(() => {
