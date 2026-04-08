@@ -27,11 +27,14 @@ const Index = () => {
       const q = searchQuery.toLowerCase();
       result = result.filter((i) => i.name.toLowerCase().includes(q));
     }
+    if (statusFilter) {
+      result = result.filter((i) => i.status === statusFilter);
+    }
     if (sortByRating) {
       result = [...result].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     }
     return result;
-  }, [items, searchQuery, sortByRating]);
+  }, [items, searchQuery, sortByRating, statusFilter]);
 
   // Categories that have items
   const populatedCategories = useMemo(() => {
