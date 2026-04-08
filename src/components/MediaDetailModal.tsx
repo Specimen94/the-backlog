@@ -35,7 +35,7 @@ export function MediaDetailModal({ item, open, onClose, onEdit, onDelete }: Medi
               <h2 className="text-2xl font-bold text-foreground">{item.name}</h2>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold text-primary-foreground ${STATUS_COLORS[item.status]}`}>
-                  {STATUS_LABELS[item.status]}
+                  {getStatusLabel(item.status, item.category)}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground">
                   {CATEGORY_LABELS[item.category]}
