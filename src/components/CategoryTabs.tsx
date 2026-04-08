@@ -11,16 +11,28 @@ interface CategoryTabsProps {
 }
 
 const STATUS_FILTER_OPTIONS: { status: MediaStatus; label: string; activeClass: string }[] = [
-  { status: "watching", label: "Watching", activeClass: "bg-status-watching text-primary-foreground" },
-  { status: "plan_to_watch", label: "Plan to Watch", activeClass: "bg-status-plan text-primary-foreground" },
-  { status: "finished", label: "Finished", activeClass: "bg-status-finished text-primary-foreground" },
+  { status: "watching",      label: "Watching / Playing",  activeClass: "bg-status-watching text-primary-foreground" },
+  { status: "plan_to_watch", label: "Plan to Watch",        activeClass: "bg-status-plan text-primary-foreground" },
+  { status: "finished",      label: "Finished",             activeClass: "bg-status-finished text-primary-foreground" },
+  { status: "dropped",       label: "Dropped",              activeClass: "bg-status-dropped text-primary-foreground" },
 ];
 
-export function CategoryTabs({ categories, activeCategory, onSelect, sortByRating, onToggleSortByRating, statusFilter, onStatusFilterChange }: CategoryTabsProps) {
+export function CategoryTabs({
+  categories,
+  activeCategory,
+  onSelect,
+  sortByRating,
+  onToggleSortByRating,
+  statusFilter,
+  onStatusFilterChange,
+}: CategoryTabsProps) {
   return (
     <div className="space-y-3">
       {/* Category row */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+      <div
+        className="flex items-center gap-2 overflow-x-auto pb-2 px-1"
+        style={{ scrollbarWidth: "none" }}
+      >
         <button
           onClick={() => onSelect("all")}
           className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -60,7 +72,7 @@ export function CategoryTabs({ categories, activeCategory, onSelect, sortByRatin
       </div>
 
       {/* Status filter row */}
-      <div className="flex items-center gap-2 px-1">
+      <div className="flex items-center gap-2 px-1 flex-wrap">
         <span className="text-xs text-muted-foreground mr-1">Filter:</span>
         {STATUS_FILTER_OPTIONS.map(({ status, label, activeClass }) => (
           <button
