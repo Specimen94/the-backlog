@@ -103,6 +103,8 @@ const Index = () => {
             onSelect={setActiveCategory}
             sortByRating={sortByRating}
             onToggleSortByRating={() => setSortByRating(!sortByRating)}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
           />
         </div>
 
