@@ -64,6 +64,45 @@ export const STATUS_LABELS: Record<MediaStatus, string> = {
   dropped: "Dropped",
 };
 
+// Category-specific status label overrides
+const CATEGORY_STATUS_OVERRIDES: Partial<Record<MediaCategory, Partial<Record<MediaStatus, string>>>> = {
+  games: { watching: "Playing", plan_to_watch: "Plan to Play", finished: "Completed", dropped: "Delete" },
+  tabletop_games: { watching: "Playing", plan_to_watch: "Plan to Play", finished: "Completed", dropped: "Delete" },
+  manga: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  lite_novel: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  manhua: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  manhwa: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  comics: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  webnovels: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  novels: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  webtoons: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  visual_novels: { watching: "Reading", plan_to_watch: "Plan to Read", finished: "Completed", dropped: "Delete" },
+  music_albums: { watching: "Listening", plan_to_watch: "Plan to Listen", finished: "Completed", dropped: "Delete" },
+  audiobooks: { watching: "Listening", plan_to_watch: "Plan to Listen", finished: "Completed", dropped: "Delete" },
+  podcasts: { watching: "Listening", plan_to_watch: "Plan to Listen", finished: "Completed", dropped: "Delete" },
+  esports: { watching: "Watching", plan_to_watch: "Plan to Watch", finished: "Completed", dropped: "Delete" },
+  movies: { dropped: "Delete" },
+  tvshows: { dropped: "Delete" },
+  anime: { dropped: "Delete" },
+  web_series: { dropped: "Delete" },
+  documentaries: { dropped: "Delete" },
+};
+
+export function getStatusLabel(status: MediaStatus, category?: MediaCategory): string {
+  if (category && CATEGORY_STATUS_OVERRIDES[category]?.[status]) {
+    return CATEGORY_STATUS_OVERRIDES[category]![status]!;
+  }
+  return STATUS_LABELS[status];
+}
+
+// Generic status filter labels (not category-specific)
+export const STATUS_FILTER_LABELS: Record<MediaStatus, string> = {
+  watching: "Watching / Playing / Reading",
+  plan_to_watch: "Plan to Watch / Read / Play",
+  finished: "Finished / Completed",
+  dropped: "Dropped / Deleted",
+};
+
 export const STATUS_COLORS: Record<MediaStatus, string> = {
   watching: "bg-status-watching",
   plan_to_watch: "bg-status-plan",

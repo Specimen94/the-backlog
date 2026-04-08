@@ -18,6 +18,7 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<MediaCategory | "all">("all");
   const [sortByRating, setSortByRating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<MediaStatus | null>(null);
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -26,11 +27,14 @@ const Index = () => {
       const q = searchQuery.toLowerCase();
       result = result.filter((i) => i.name.toLowerCase().includes(q));
     }
+    if (statusFilter) {
+      result = result.filter((i) => i.status === statusFilter);
+    }
     if (sortByRating) {
       result = [...result].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     }
     return result;
-  }, [items, searchQuery, sortByRating]);
+  }, [items, searchQuery, sortByRating, statusFilter]);
 
   // Categories that have items
   const populatedCategories = useMemo(() => {
@@ -99,6 +103,8 @@ const Index = () => {
             onSelect={setActiveCategory}
             sortByRating={sortByRating}
             onToggleSortByRating={() => setSortByRating(!sortByRating)}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
           />
         </div>
 
