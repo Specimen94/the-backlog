@@ -1,4 +1,4 @@
-import { MediaItem, STATUS_LABELS, CATEGORY_LABELS, STATUS_COLORS } from "@/types/media";
+import { MediaItem, CATEGORY_LABELS, STATUS_COLORS, getStatusLabel } from "@/types/media";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Star, Pencil, Trash2, Calendar } from "lucide-react";
