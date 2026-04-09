@@ -394,25 +394,69 @@ async function searchBGG(query: string): Promise<SearchResult[]> {
   } catch { return []; }
 }
 
-// Free Games DB via FreeToGame API — free-to-play games catalog
-async function searchFreeToGame(query: string): Promise<SearchResult[]> {
+// Wikipedia game search — free, no key, no CORS issues
+async function searchWikipediaGames(query: string): Promise<SearchResult[]> {
   try {
-    const res = await fetch(`https://www.freetogame.com/api/games`);
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + " video game")}&srnamespace=0&srlimit=8&format=json&origin=*`
+    );
     if (!res.ok) return [];
     const data = await res.json();
-    if (!Array.isArray(data)) return [];
-    const q = query.toLowerCase();
-    const filtered = data
-      .filter((g: any) => g.title?.toLowerCase().includes(q))
-      .slice(0, 8);
-    return filtered.map((item: any) => ({
-      title: item.title || "",
-      coverUrl: item.thumbnail || "",
-      description: item.short_description || "",
+    if (!data.query?.search) return [];
+    
+    const results: SearchResult[] = [];
+    for (const item of data.query.search.slice(0, 6)) {
+      const title = item.title || "";
+      // Clean snippet HTML
+      const desc = (item.snippet || "").replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+      
+      // Try to get thumbnail from Wikipedia
+      let coverUrl = "";
+      try {
+        const imgRes = await fetch(
+          `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&pithumbsize=400&format=json&origin=*`
+        );
+        const imgData = await imgRes.json();
+        const pages = imgData.query?.pages;
+        if (pages) {
+          const page = Object.values(pages)[0] as any;
+          coverUrl = page?.thumbnail?.source || "";
+        }
+      } catch { /* thumbnail optional */ }
+      
+      // Extract year from snippet if present
+      const yearMatch = desc.match(/\b(19|20)\d{2}\b/);
+      
+      results.push({
+        title,
+        coverUrl,
+        description: desc.slice(0, 300),
+        category: "games" as MediaCategory,
+        year: yearMatch ? yearMatch[0] : undefined,
+        source: "Wikipedia",
+      });
+    }
+    return results;
+  } catch { return []; }
+}
+
+// Steam Store search via unofficial storefront API
+async function searchSteamStore(query: string): Promise<SearchResult[]> {
+  try {
+    const res = await fetch(
+      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=en&cc=US`,
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.items) return [];
+    return data.items.slice(0, 8).map((item: any) => ({
+      title: item.name || "",
+      coverUrl: item.tiny_image || "",
+      description: "",
       category: "games" as MediaCategory,
-      year: item.release_date ? item.release_date.slice(0, 4) : undefined,
-      source: "FreeToGame",
-    }));
+      year: undefined,
+      source: "Steam",
+    })).filter((r: SearchResult) => r.title);
   } catch { return []; }
 }
 
@@ -542,9 +586,10 @@ export async function searchMedia(
     promises.push(searchAniList(query, "ANIME"));
     promises.push(searchJikanManga(query));
     promises.push(searchMangaDex(query));
-    promises.push(searchCheapShark(query));
-    promises.push(searchFreeToGame(query));
-    promises.push(searchGoogleBooks(query));
+      promises.push(searchCheapShark(query));
+      promises.push(searchSteamStore(query));
+      promises.push(searchWikipediaGames(query));
+      promises.push(searchGoogleBooks(query));
   } else {
     switch (categoryHint) {
       case "movies":
@@ -594,12 +639,15 @@ export async function searchMedia(
 
       case "games":
         promises.push(searchCheapShark(query));
-        promises.push(searchFreeToGame(query));
+        promises.push(searchGiantBomb(query));
+        promises.push(searchSteamStore(query));
+        promises.push(searchWikipediaGames(query));
         break;
 
       case "visual_novels":
         promises.push(searchCheapShark(query));
-        promises.push(searchJikanAnime(query)); // many VNs have anime adaptations
+        promises.push(searchGiantBomb(query));
+        promises.push(searchJikanAnime(query));
         break;
 
       case "documentaries":
@@ -622,6 +670,7 @@ export async function searchMedia(
 
       case "esports":
         promises.push(searchCheapShark(query));
+        promises.push(searchGiantBomb(query));
         break;
 
       default:
