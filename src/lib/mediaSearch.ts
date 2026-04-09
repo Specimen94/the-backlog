@@ -542,8 +542,8 @@ export async function searchMedia(
     promises.push(searchAniList(query, "ANIME"));
     promises.push(searchJikanManga(query));
     promises.push(searchMangaDex(query));
-    promises.push(searchRAWG(query));
-    promises.push(searchSteam(query));
+    promises.push(searchCheapShark(query));
+    promises.push(searchFreeToGame(query));
     promises.push(searchGoogleBooks(query));
   } else {
     switch (categoryHint) {
