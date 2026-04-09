@@ -537,6 +537,52 @@ async function searchItunes(query: string, mediaType: string): Promise<SearchRes
 }
 
 // ─────────────────────────────────────────────
+// INTERNET ARCHIVE
+// ─────────────────────────────────────────────
+
+// Internet Archive — free, no key, huge catalog of books, movies, music, games, etc.
+async function searchInternetArchive(query: string, mediatype?: string): Promise<SearchResult[]> {
+  try {
+    const mtFilter = mediatype ? `&mediatype=${encodeURIComponent(mediatype)}` : "";
+    const res = await fetch(
+      `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}${mtFilter}&fl[]=identifier,title,description,year,mediatype&sort[]=downloads+desc&rows=8&page=1&output=json`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const docs = data?.response?.docs;
+    if (!Array.isArray(docs)) return [];
+
+    return docs.map((item: any) => {
+      const title = item.title || "";
+      const coverUrl = item.identifier
+        ? `https://archive.org/services/img/${item.identifier}`
+        : "";
+      const desc = Array.isArray(item.description)
+        ? item.description[0]
+        : item.description || "";
+      const cleanDesc = desc.replace(/<[^>]+>/g, "").slice(0, 300);
+
+      // Map archive mediatype to our categories
+      let category: MediaCategory = "movies";
+      const mt = (item.mediatype || "").toLowerCase();
+      if (mt === "texts") category = "novels";
+      else if (mt === "audio") category = "music_albums";
+      else if (mt === "movies" || mt === "video") category = "movies";
+      else if (mt === "software") category = "games";
+
+      return {
+        title,
+        coverUrl,
+        description: cleanDesc,
+        category,
+        year: item.year ? String(item.year) : undefined,
+        source: "Internet Archive",
+      };
+    }).filter((r: SearchResult) => r.title);
+  } catch { return []; }
+}
+
+// ─────────────────────────────────────────────
 // DEDUP + MERGE HELPERS
 // ─────────────────────────────────────────────
 
