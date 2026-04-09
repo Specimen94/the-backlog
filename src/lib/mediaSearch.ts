@@ -593,8 +593,8 @@ export async function searchMedia(
         break;
 
       case "games":
-        promises.push(searchRAWG(query));
-        promises.push(searchSteam(query));
+        promises.push(searchCheapShark(query));
+        promises.push(searchFreeToGame(query));
         break;
 
       case "visual_novels":
@@ -616,12 +616,12 @@ export async function searchMedia(
         break;
 
       case "tabletop_games":
-        promises.push(searchGoogleBooks(query)); // many tabletop game books listed
-        promises.push(searchRAWG(query));
+        promises.push(searchBGG(query));
+        promises.push(searchGoogleBooks(query));
         break;
 
       case "esports":
-        promises.push(searchRAWG(query));
+        promises.push(searchCheapShark(query));
         break;
 
       default:
