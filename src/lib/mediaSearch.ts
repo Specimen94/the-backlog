@@ -670,6 +670,7 @@ export async function searchMedia(
 
       case "esports":
         promises.push(searchCheapShark(query));
+        promises.push(searchGiantBomb(query));
         break;
 
       default:
