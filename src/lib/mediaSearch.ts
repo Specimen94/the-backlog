@@ -598,7 +598,7 @@ export async function searchMedia(
         break;
 
       case "visual_novels":
-        promises.push(searchRAWG(query));
+        promises.push(searchCheapShark(query));
         promises.push(searchJikanAnime(query)); // many VNs have anime adaptations
         break;
 
