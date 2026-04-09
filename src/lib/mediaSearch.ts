@@ -635,15 +635,15 @@ export async function searchMedia(
       promises.push(searchCheapShark(query));
       promises.push(searchSteamStore(query));
       promises.push(searchWikipediaGames(query));
+      promises.push(searchInternetArchive(query));
       promises.push(searchGoogleBooks(query));
   } else {
     switch (categoryHint) {
       case "movies":
         promises.push(searchTMDB(query, "movie"));
         promises.push(searchOMDB(query));
+        promises.push(searchInternetArchive(query, "movies"));
         break;
-
-      case "tvshows":
       case "web_series":
         promises.push(searchTMDB(query, "tv"));
         promises.push(searchOMDB(query));
@@ -662,7 +662,7 @@ export async function searchMedia(
         promises.push(searchJikanManga(query));
         promises.push(searchMangaDex(query));
         promises.push(searchAniList(query, "MANGA"));
-        promises.push(searchGoogleBooks(query));
+        promises.push(searchInternetArchive(query, "texts"));
         break;
 
       case "novels":
@@ -681,6 +681,7 @@ export async function searchMedia(
         promises.push(searchOpenLibrary(query));
         promises.push(searchGoogleBooks(query));
         promises.push(searchItunes(query, "audiobook"));
+        promises.push(searchInternetArchive(query, "audio"));
         break;
 
       case "games":
@@ -688,6 +689,7 @@ export async function searchMedia(
         promises.push(searchGiantBomb(query));
         promises.push(searchSteamStore(query));
         promises.push(searchWikipediaGames(query));
+        promises.push(searchInternetArchive(query, "software"));
         break;
 
       case "visual_novels":
@@ -707,6 +709,7 @@ export async function searchMedia(
 
       case "music_albums":
         promises.push(searchItunes(query, "music"));
+        promises.push(searchInternetArchive(query, "audio"));
         break;
 
       case "tabletop_games":
