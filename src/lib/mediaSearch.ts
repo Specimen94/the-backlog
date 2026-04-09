@@ -644,14 +644,17 @@ export async function searchMedia(
         promises.push(searchOMDB(query));
         promises.push(searchInternetArchive(query, "movies"));
         break;
+      case "tvshows":
       case "web_series":
         promises.push(searchTMDB(query, "tv"));
         promises.push(searchOMDB(query));
+        promises.push(searchInternetArchive(query, "movies"));
         break;
 
       case "anime":
         promises.push(searchJikanAnime(query));
         promises.push(searchAniList(query, "ANIME"));
+        promises.push(searchInternetArchive(query, "movies"));
         break;
 
       case "manga":
@@ -669,12 +672,14 @@ export async function searchMedia(
       case "webnovels":
         promises.push(searchOpenLibrary(query));
         promises.push(searchGoogleBooks(query));
+        promises.push(searchInternetArchive(query, "texts"));
         break;
 
       case "lite_novel":
         promises.push(searchJikanManga(query));
         promises.push(searchAniList(query, "MANGA"));
         promises.push(searchOpenLibrary(query));
+        promises.push(searchInternetArchive(query, "texts"));
         break;
 
       case "audiobooks":
@@ -696,15 +701,18 @@ export async function searchMedia(
         promises.push(searchCheapShark(query));
         promises.push(searchGiantBomb(query));
         promises.push(searchJikanAnime(query));
+        promises.push(searchInternetArchive(query, "software"));
         break;
 
       case "documentaries":
         promises.push(searchTMDBDocumentaries(query));
         promises.push(searchYouTubeDocumentaries(query));
+        promises.push(searchInternetArchive(query, "movies"));
         break;
 
       case "podcasts":
         promises.push(searchItunes(query, "podcast"));
+        promises.push(searchInternetArchive(query, "audio"));
         break;
 
       case "music_albums":
@@ -715,11 +723,13 @@ export async function searchMedia(
       case "tabletop_games":
         promises.push(searchBGG(query));
         promises.push(searchGoogleBooks(query));
+        promises.push(searchInternetArchive(query, "texts"));
         break;
 
       case "esports":
         promises.push(searchCheapShark(query));
         promises.push(searchGiantBomb(query));
+        promises.push(searchInternetArchive(query, "software"));
         break;
 
       default:
