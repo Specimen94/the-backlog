@@ -300,85 +300,119 @@ async function searchOMDB(query: string): Promise<SearchResult[]> {
 // GAMES
 // ─────────────────────────────────────────────
 
-// IGDB via Twitch — requires client credentials but we'll use a CORS proxy approach
-// RAWG public API — free, requires key but has a demo key endpoint
-async function searchRAWG(query: string): Promise<SearchResult[]> {
+// GiantBomb wiki-style search — free, no key needed for basic search
+async function searchGiantBomb(query: string): Promise<SearchResult[]> {
   try {
-    // RAWG requires an API key but demo key works for search
+    // Use the GiantBomb suggestions endpoint (no API key, no CORS issues)
     const res = await fetch(
-      `https://api.rawg.io/api/games?search=${encodeURIComponent(query)}&page_size=8&key=f9e3b7c1d4e5a6b2c3d4e5f6a7b8c9d0`
+      `https://www.giantbomb.com/api/search/?api_key=&format=json&query=${encodeURIComponent(query)}&resources=game&limit=8`,
+      { headers: { Accept: "application/json" } }
     );
+    // If GiantBomb blocks, return empty
+    if (!res.ok) return [];
     const data = await res.json();
     if (!data.results) return [];
-    // Fetch description for top results
-    const detailed = await Promise.allSettled(
-      data.results.slice(0, 6).map(async (item: any) => {
-        let description = "";
-        try {
-          const detail = await fetch(
-            `https://api.rawg.io/api/games/${item.id}?key=f9e3b7c1d4e5a6b2c3d4e5f6a7b8c9d0`
-          );
-          const d = await detail.json();
-          if (d.description_raw) {
-            description = d.description_raw.slice(0, 500).trim();
-          } else if (d.description) {
-            description = d.description.replace(/<[^>]+>/g, "").slice(0, 500).trim();
-          }
-        } catch { /* leave empty */ }
-        return {
-          title: item.name,
-          coverUrl: item.background_image || "",
-          description,
-          category: "games" as MediaCategory,
-          year: item.released ? item.released.slice(0, 4) : undefined,
-          source: "RAWG",
-        };
-      })
-    );
-    return detailed
-      .filter((r) => r.status === "fulfilled")
-      .map((r) => (r as PromiseFulfilledResult<SearchResult>).value);
+    return data.results.map((item: any) => ({
+      title: item.name || "",
+      coverUrl: item.image?.medium_url || item.image?.small_url || "",
+      description: item.deck || "",
+      category: "games" as MediaCategory,
+      year: item.original_release_date ? item.original_release_date.slice(0, 4) :
+            item.expected_release_year ? String(item.expected_release_year) : undefined,
+      source: "GiantBomb",
+    })).filter((r: SearchResult) => r.title);
   } catch { return []; }
 }
 
-// Steam store search — completely free, no key
-async function searchSteam(query: string): Promise<SearchResult[]> {
+// CheapShark — free game deals API, no key needed, good for PC games
+async function searchCheapShark(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`
+      `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(query)}&limit=8`
     );
+    if (!res.ok) return [];
     const data = await res.json();
-    if (!data.items) return [];
-    // Get details for each app (for description + cover)
-    const detailed = await Promise.allSettled(
-      data.items.slice(0, 5).map(async (item: any) => {
-        let description = "";
-        let coverUrl = item.tiny_image || "";
-        try {
-          const detail = await fetch(
-            `https://store.steampowered.com/api/appdetails?appids=${item.id}&cc=us&l=en`
-          );
-          const d = await detail.json();
-          const appData = d[item.id]?.data;
-          if (appData) {
-            description = appData.short_description || appData.detailed_description?.replace(/<[^>]+>/g, "").slice(0, 500).trim() || "";
-            coverUrl = appData.header_image || coverUrl;
-          }
-        } catch { /* leave empty */ }
-        return {
-          title: item.name,
-          coverUrl,
-          description,
-          category: "games" as MediaCategory,
-          year: undefined,
-          source: "Steam",
-        };
-      })
+    if (!Array.isArray(data)) return [];
+    return data.map((item: any) => ({
+      title: item.external || "",
+      coverUrl: item.thumb || "",
+      description: item.cheapest ? `Cheapest price: $${item.cheapest}` : "",
+      category: "games" as MediaCategory,
+      year: undefined,
+      source: "CheapShark",
+    })).filter((r: SearchResult) => r.title);
+  } catch { return []; }
+}
+
+// TMDB can also find game-related movies/shows, but for actual games we use a different approach
+// BoardGameGeek XML API — for tabletop games, free, no key
+async function searchBGG(query: string): Promise<SearchResult[]> {
+  try {
+    const res = await fetch(
+      `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(query)}&type=boardgame`
     );
-    return detailed
-      .filter((r) => r.status === "fulfilled")
-      .map((r) => (r as PromiseFulfilledResult<SearchResult>).value)
-      .filter((r) => r.title);
+    if (!res.ok) return [];
+    const text = await res.text();
+    // Parse XML manually
+    const items: SearchResult[] = [];
+    const regex = /<item.*?id="(\d+)".*?<name.*?value="([^"]*)".*?<yearpublished.*?value="(\d+)".*?<\/item>/gs;
+    let match;
+    while ((match = regex.exec(text)) !== null && items.length < 8) {
+      items.push({
+        title: match[2],
+        coverUrl: `https://cf.geekdo-images.com/thumb/img/placeholder.jpg`, // BGG needs a second call for images
+        description: "",
+        category: "tabletop_games" as MediaCategory,
+        year: match[3],
+        source: "BoardGameGeek",
+      });
+    }
+    // Fetch thumbnails for found items
+    if (items.length > 0) {
+      const ids = items.map((_, i) => {
+        const m = text.match(new RegExp(`<item.*?id="(\\d+)"`, "g"));
+        return m?.[i]?.match(/id="(\d+)"/)?.[1];
+      }).filter(Boolean).slice(0, 8);
+      
+      if (ids.length > 0) {
+        try {
+          const detailRes = await fetch(
+            `https://boardgamegeek.com/xmlapi2/thing?id=${ids.join(",")}&stats=1`
+          );
+          const detailText = await detailRes.text();
+          ids.forEach((id, i) => {
+            if (i >= items.length) return;
+            const thumbMatch = detailText.match(new RegExp(`<item.*?id="${id}"[^>]*>.*?<thumbnail>(.*?)<\\/thumbnail>`, "s"));
+            const descMatch = detailText.match(new RegExp(`<item.*?id="${id}"[^>]*>.*?<description>(.*?)<\\/description>`, "s"));
+            if (thumbMatch?.[1]) items[i].coverUrl = thumbMatch[1];
+            if (descMatch?.[1]) items[i].description = descMatch[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/<[^>]+>/g, "").replace(/&#10;/g, " ").slice(0, 300);
+          });
+        } catch { /* images optional */ }
+      }
+    }
+    return items;
+  } catch { return []; }
+}
+
+// Free Games DB via FreeToGame API — free-to-play games catalog
+async function searchFreeToGame(query: string): Promise<SearchResult[]> {
+  try {
+    const res = await fetch(`https://www.freetogame.com/api/games`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    const q = query.toLowerCase();
+    const filtered = data
+      .filter((g: any) => g.title?.toLowerCase().includes(q))
+      .slice(0, 8);
+    return filtered.map((item: any) => ({
+      title: item.title || "",
+      coverUrl: item.thumbnail || "",
+      description: item.short_description || "",
+      category: "games" as MediaCategory,
+      year: item.release_date ? item.release_date.slice(0, 4) : undefined,
+      source: "FreeToGame",
+    }));
   } catch { return []; }
 }
 
@@ -508,8 +542,8 @@ export async function searchMedia(
     promises.push(searchAniList(query, "ANIME"));
     promises.push(searchJikanManga(query));
     promises.push(searchMangaDex(query));
-    promises.push(searchRAWG(query));
-    promises.push(searchSteam(query));
+    promises.push(searchCheapShark(query));
+    promises.push(searchFreeToGame(query));
     promises.push(searchGoogleBooks(query));
   } else {
     switch (categoryHint) {
@@ -559,12 +593,12 @@ export async function searchMedia(
         break;
 
       case "games":
-        promises.push(searchRAWG(query));
-        promises.push(searchSteam(query));
+        promises.push(searchCheapShark(query));
+        promises.push(searchFreeToGame(query));
         break;
 
       case "visual_novels":
-        promises.push(searchRAWG(query));
+        promises.push(searchCheapShark(query));
         promises.push(searchJikanAnime(query)); // many VNs have anime adaptations
         break;
 
@@ -582,12 +616,12 @@ export async function searchMedia(
         break;
 
       case "tabletop_games":
-        promises.push(searchGoogleBooks(query)); // many tabletop game books listed
-        promises.push(searchRAWG(query));
+        promises.push(searchBGG(query));
+        promises.push(searchGoogleBooks(query));
         break;
 
       case "esports":
-        promises.push(searchRAWG(query));
+        promises.push(searchCheapShark(query));
         break;
 
       default:
