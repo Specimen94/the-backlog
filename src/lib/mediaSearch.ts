@@ -54,15 +54,22 @@ function scoreResult(result: SearchResult, pq: ParsedQuery): number {
   const t = result.title.toLowerCase();
   let score = 0;
 
-  // ── Word token matching ──
+  // ── Word token matching (with fuzzy support) ──
   const wordCount = pq.words.length;
   if (wordCount > 0) {
-    const matchedWords = pq.words.filter((w) => t.includes(w));
-    const matchRatio = matchedWords.length / wordCount;
+    const tWords = t.split(/[\s\-_:,.]+/).filter(Boolean);
+    const exactMatches = pq.words.filter((w) => t.includes(w));
+    const fuzzyMatches = pq.words.filter((w) => !t.includes(w) && tWords.some(tw => fuzzyWordMatch(w, tw)));
+    const totalMatches = exactMatches.length + fuzzyMatches.length;
+    const matchRatio = totalMatches / wordCount;
 
     // Zero matches = basically irrelevant
     if (matchRatio === 0) score += 20;
     else {
+      // Exact word matches are worth more than fuzzy
+      score -= exactMatches.length * 2;
+      score -= fuzzyMatches.length * 1;
+
       // All words match = very relevant
       if (matchRatio === 1) score -= 6;
       else score -= matchRatio * 4;
@@ -118,11 +125,14 @@ function sortAndFilter(results: SearchResult[], pq: ParsedQuery): SearchResult[]
   // Score everything
   const scored = results.map((r) => ({ r, s: scoreResult(r, pq) }));
 
-  // Filter: drop results with zero word-token matches when query has 2+ words
-  // This removes obviously irrelevant results (Issue #1 + #2)
+  // Filter: drop results with zero word-token matches (exact OR fuzzy) when query has 2+ words
   const filtered =
     pq.words.length >= 2
-      ? scored.filter(({ r }) => pq.words.some((w) => r.title.toLowerCase().includes(w)))
+      ? scored.filter(({ r }) => {
+          const tLower = r.title.toLowerCase();
+          const tWords = tLower.split(/[\s\-_:,.]+/).filter(Boolean);
+          return pq.words.some((w) => tLower.includes(w) || tWords.some(tw => fuzzyWordMatch(w, tw)));
+        })
       : scored;
 
   return filtered
