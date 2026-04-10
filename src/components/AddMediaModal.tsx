@@ -106,7 +106,9 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
     setName(result.title);
     if (result.coverUrl) setCoverUrl(result.coverUrl);
     if (result.description) setDescription(result.description);
-    setCategory(result.category);
+    // FIX: Do NOT override the user's selected category.
+    // The category the user chose in the dropdown always takes priority.
+    // result.category is only shown as an informational tag in the dropdown.
     setShowDropdown(false);
     setAutoFilled(true);
   }, []);
@@ -206,7 +208,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{result.title}</p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Source category — your selected category above takes priority">
                             {CATEGORY_LABELS[result.category]}
                           </span>
                           {result.year && <span className="text-[10px] text-muted-foreground">{result.year}</span>}

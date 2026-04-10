@@ -10,12 +10,132 @@ export interface SearchResult {
 }
 
 // ─────────────────────────────────────────────
+// QUERY TOKENIZER
+// Splits "Absolute Batman 2022" → { words: ["absolute","batman"], years: ["2022"] }
+// This powers smarter scoring AND smarter API queries
+// ─────────────────────────────────────────────
+
+interface ParsedQuery {
+  raw: string;
+  words: string[];       // non-year tokens, lowercased
+  years: string[];       // 4-digit year tokens
+  titleQuery: string;    // words joined, no years — best for API title searches
+}
+
+function parseQuery(query: string): ParsedQuery {
+  const tokens = query.trim().split(/\s+/).filter(Boolean);
+  const years = tokens.filter((t) => /^\d{4}$/.test(t));
+  const words = tokens
+    .filter((t) => !/^\d{4}$/.test(t))
+    .map((t) => t.toLowerCase());
+  return {
+    raw: query,
+    words,
+    years,
+    titleQuery: words.join(" "),
+  };
+}
+
+// ─────────────────────────────────────────────
+// RELEVANCE SCORING  (tokenized — fixes Issue #1)
+//
+// OLD approach: searched for the full raw query as a substring of title.
+//   "Absolute Batman 2022" never matched "Absolute Batman" → score 0 for everything.
+//
+// NEW approach: splits query into word-tokens and year-tokens, scores each independently.
+//   "Absolute Batman 2022" → words=["absolute","batman"] years=["2022"]
+//   Title "Absolute Batman Vol.1" matches both words → high score
+//   Title "Batman" matches 1/2 words, no year match → medium score
+//   Title "Lasagna Recipe" matches 0 words → low score (filtered out)
+// ─────────────────────────────────────────────
+
+function scoreResult(result: SearchResult, pq: ParsedQuery): number {
+  const t = result.title.toLowerCase();
+  let score = 0;
+
+  // ── Word token matching ──
+  const wordCount = pq.words.length;
+  if (wordCount > 0) {
+    const matchedWords = pq.words.filter((w) => t.includes(w));
+    const matchRatio = matchedWords.length / wordCount;
+
+    // Zero matches = basically irrelevant
+    if (matchRatio === 0) score += 20;
+    else {
+      // All words match = very relevant
+      if (matchRatio === 1) score -= 6;
+      else score -= matchRatio * 4;
+
+      // Full phrase (words in order) = even better
+      if (t.includes(pq.titleQuery)) score -= 3;
+
+      // Exact title = best possible
+      if (t === pq.titleQuery) score -= 5;
+
+      // Title starts with query phrase
+      if (t.startsWith(pq.titleQuery)) score -= 2;
+    }
+  }
+
+  // ── Year token matching ──
+  if (pq.years.length > 0 && result.year) {
+    if (pq.years.includes(result.year)) score -= 4;  // year matches → boost
+    else score += 1;                                   // year present but wrong → small penalty
+  }
+
+  // ── Quality bonuses ──
+  if (result.description) score -= 0.5;
+  if (result.coverUrl) score -= 0.3;
+
+  return score;
+}
+
+// ─────────────────────────────────────────────
+// DEDUP — smarter than exact-title match
+// Considers titles that are very similar (e.g. same title different source) as duplicates
+// ─────────────────────────────────────────────
+
+function dedup(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  const out: SearchResult[] = [];
+  for (const r of results) {
+    // Normalize: lowercase, strip punctuation, collapse spaces
+    const key = r.title
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
+function sortAndFilter(results: SearchResult[], pq: ParsedQuery): SearchResult[] {
+  // Score everything
+  const scored = results.map((r) => ({ r, s: scoreResult(r, pq) }));
+
+  // Filter: drop results with zero word-token matches when query has 2+ words
+  // This removes obviously irrelevant results (Issue #1 + #2)
+  const filtered =
+    pq.words.length >= 2
+      ? scored.filter(({ r }) => pq.words.some((w) => r.title.toLowerCase().includes(w)))
+      : scored;
+
+  return filtered
+    .sort((a, b) => a.s - b.s)
+    .map(({ r }) => r);
+}
+
+// ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
 
 function cleanText(text: string): string {
   return text
-    .replace(/<[^>]+>/g, "")          // strip HTML tags
+    .replace(/<[^>]+>/g, "")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -26,68 +146,19 @@ function cleanText(text: string): string {
     .trim();
 }
 
-function dedup(results: SearchResult[]): SearchResult[] {
-  const seen = new Set<string>();
-  const out: SearchResult[] = [];
-  for (const r of results) {
-    const key = r.title.toLowerCase().trim();
-    if (key && !seen.has(key)) {
-      seen.add(key);
-      out.push(r);
-    }
-  }
-  return out;
-}
-
-function sortByRelevance(results: SearchResult[], query: string): SearchResult[] {
-  const q = query.toLowerCase();
-  return [...results].sort((a, b) => {
-    const score = (r: SearchResult) => {
-      let s = 0;
-      const t = r.title.toLowerCase();
-      if (t === q) s -= 3;
-      else if (t.startsWith(q)) s -= 2;
-      else if (t.includes(q)) s -= 1;
-      if (r.description) s -= 0.5;
-      if (r.coverUrl) s -= 0.3;
-      return s;
-    };
-    return score(a) - score(b);
-  });
-}
-
 // ─────────────────────────────────────────────
-// INTERNET ARCHIVE  (fixed)
+// INTERNET ARCHIVE
 // ─────────────────────────────────────────────
 
-/**
- * Builds a correct Internet Archive Solr advancedsearch URL.
- *
- * Bugs fixed vs old version:
- *  1. fl[] params must be REPEATED, not comma-joined in one value.
- *     Old: fl[]=identifier,title,description   ← Solr ignores this
- *     New: fl[]=identifier&fl[]=title&fl[]=description  ← correct
- *
- *  2. Mediatype filter must go INSIDE the q param using Solr syntax.
- *     Old: &mediatype=movies  ← not a valid param, silently ignored
- *     New: q=(query) AND mediatype:movies  ← correct Solr query
- *
- *  3. Added subject[] field so we can better classify texts (manga, comics, novels).
- *  4. Improved description cleanup: strips HTML + entities.
- *  5. Better category mapping using subject tags and mediatype together.
- */
 async function searchInternetArchive(
   query: string,
   mediatype?: string
 ): Promise<SearchResult[]> {
   try {
-    // Build query - mediatype filter goes INSIDE the q string (Solr syntax)
     const solrQ = mediatype
       ? `(${query}) AND mediatype:${mediatype}`
       : query;
 
-    // Use URLSearchParams with repeated .append() calls for fl[] fields
-    // This is the ONLY correct way - comma-joining them into one value doesn't work
     const params = new URLSearchParams();
     params.append("q", solrQ);
     params.append("fl[]", "identifier");
@@ -98,7 +169,7 @@ async function searchInternetArchive(
     params.append("fl[]", "subject");
     params.append("fl[]", "creator");
     params.append("sort[]", "downloads desc");
-    params.append("rows", "10");
+    params.append("rows", "15");
     params.append("page", "1");
     params.append("output", "json");
 
@@ -116,38 +187,30 @@ async function searchInternetArchive(
         const title = Array.isArray(item.title) ? item.title[0] : item.title;
         if (!title) return null;
 
-        // Cover image — archive.org/services/img/{identifier} returns real thumbnails
         const coverUrl = item.identifier
           ? `https://archive.org/services/img/${item.identifier}`
           : "";
 
-        // Description: can be string or array, may contain HTML
         const rawDesc = Array.isArray(item.description)
           ? item.description[0]
           : item.description || "";
         const description = cleanText(String(rawDesc)).slice(0, 400);
-
-        // Creator fallback for description
         const finalDesc =
           description ||
           (item.creator
             ? `By ${Array.isArray(item.creator) ? item.creator[0] : item.creator}`
             : "");
 
-        // ── Category mapping ──
-        // Use BOTH mediatype AND subject tags to be accurate
         const mt = (item.mediatype || "").toLowerCase();
         const subjects: string[] = (
           Array.isArray(item.subject) ? item.subject : [item.subject || ""]
         ).map((s: string) => (s || "").toLowerCase());
 
-        let category: MediaCategory = "movies"; // default
-
+        let category: MediaCategory = "movies";
         const subjectHas = (terms: string[]) =>
           terms.some((t) => subjects.some((s) => s.includes(t)));
 
         if (mt === "texts") {
-          // Classify text items by subject tags
           if (subjectHas(["manga", "graphic novel", "comic"])) category = "comics";
           else if (subjectHas(["manhwa"])) category = "manhwa";
           else if (subjectHas(["manhua"])) category = "manhua";
@@ -162,15 +225,10 @@ async function searchInternetArchive(
         } else if (mt === "software") {
           category = "games";
         } else if (mt === "movies" || mt === "video") {
-          if (subjectHas(["documentary", "nature", "history", "science"])) {
-            category = "documentaries";
-          } else if (subjectHas(["anime", "animation"])) {
-            category = "anime";
-          } else {
-            category = "movies";
-          }
+          if (subjectHas(["documentary", "nature", "history", "science"])) category = "documentaries";
+          else if (subjectHas(["anime", "animation"])) category = "anime";
+          else category = "movies";
         } else if (mt === "collection") {
-          // Collections are usually skipped — they're not a single media item
           return null;
         }
 
@@ -196,7 +254,7 @@ async function searchInternetArchive(
 async function searchJikanAnime(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=8&sfw=true`
+      `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=15&sfw=true`
     );
     const data = await res.json();
     if (!data.data) return [];
@@ -223,7 +281,7 @@ async function searchAniList(query: string, type: "ANIME" | "MANGA"): Promise<Se
   try {
     const gql = `
       query ($q: String, $type: MediaType) {
-        Page(perPage: 8) {
+        Page(perPage: 15) {
           media(search: $q, type: $type, sort: SEARCH_MATCH) {
             title { romaji english }
             coverImage { extraLarge large }
@@ -255,9 +313,7 @@ async function searchAniList(query: string, type: "ANIME" | "MANGA"): Promise<Se
       return {
         title: item.title?.english || item.title?.romaji || "",
         coverUrl: item.coverImage?.extraLarge || item.coverImage?.large || "",
-        description: item.description
-          ? cleanText(item.description)
-          : "",
+        description: item.description ? cleanText(item.description) : "",
         category,
         year: item.startDate?.year ? String(item.startDate.year) : undefined,
         source: "AniList",
@@ -275,7 +331,7 @@ async function searchAniList(query: string, type: "ANIME" | "MANGA"): Promise<Se
 async function searchJikanManga(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=8&sfw=true`
+      `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=15&sfw=true`
     );
     const data = await res.json();
     if (!data.data) return [];
@@ -307,7 +363,7 @@ async function searchJikanManga(query: string): Promise<SearchResult[]> {
 async function searchMangaDex(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://api.mangadex.org/manga?title=${encodeURIComponent(query)}&limit=8&order[relevance]=desc&includes[]=cover_art`
+      `https://api.mangadex.org/manga?title=${encodeURIComponent(query)}&limit=15&order[relevance]=desc&includes[]=cover_art`
     );
     const data = await res.json();
     if (!data.data) return [];
@@ -347,16 +403,18 @@ async function searchMangaDex(query: string): Promise<SearchResult[]> {
 async function searchOpenLibrary(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,subject,first_sentence`
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=15&fields=key,title,author_name,first_publish_year,cover_i,subject,first_sentence`
     );
     const data = await res.json();
     if (!data.docs) return [];
-    return data.docs.slice(0, 8).map((item: any) => {
+    return data.docs.slice(0, 15).map((item: any) => {
       const authorStr = item.author_name
         ? `By ${item.author_name.slice(0, 2).join(" & ")}.`
         : "";
       const firstSentence = item.first_sentence
-        ? (Array.isArray(item.first_sentence) ? item.first_sentence[0] : item.first_sentence)
+        ? Array.isArray(item.first_sentence)
+          ? item.first_sentence[0]
+          : item.first_sentence
         : "";
       const description = cleanText(firstSentence || authorStr);
       return {
@@ -378,7 +436,7 @@ async function searchOpenLibrary(query: string): Promise<SearchResult[]> {
 async function searchGoogleBooks(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=8&printType=books&langRestrict=en`
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=15&printType=books&langRestrict=en`
     );
     const data = await res.json();
     if (!data.items) return [];
@@ -425,7 +483,7 @@ async function searchTMDB(query: string, type: "movie" | "tv"): Promise<SearchRe
     );
     const data = await res.json();
     if (!data.results) return [];
-    return data.results.slice(0, 8).map((item: any) => ({
+    return data.results.slice(0, 15).map((item: any) => ({
       title: item.title || item.name || "",
       coverUrl: item.poster_path
         ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
@@ -448,7 +506,7 @@ async function searchOMDB(query: string): Promise<SearchResult[]> {
     const data = await res.json();
     if (!data.Search) return [];
     const enriched = await Promise.allSettled(
-      data.Search.slice(0, 6).map(async (item: any) => {
+      data.Search.slice(0, 8).map(async (item: any) => {
         let description = "";
         try {
           const detail = await fetch(
@@ -482,12 +540,12 @@ async function searchOMDB(query: string): Promise<SearchResult[]> {
 async function searchRAWG(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://api.rawg.io/api/games?search=${encodeURIComponent(query)}&page_size=8&key=f9e3b7c1d4e5a6b2c3d4e5f6a7b8c9d0`
+      `https://api.rawg.io/api/games?search=${encodeURIComponent(query)}&page_size=15&key=f9e3b7c1d4e5a6b2c3d4e5f6a7b8c9d0`
     );
     const data = await res.json();
     if (!data.results) return [];
     const detailed = await Promise.allSettled(
-      data.results.slice(0, 6).map(async (item: any) => {
+      data.results.slice(0, 8).map(async (item: any) => {
         let description = "";
         try {
           const detail = await fetch(
@@ -525,7 +583,7 @@ async function searchSteam(query: string): Promise<SearchResult[]> {
     const data = await res.json();
     if (!data.items) return [];
     const detailed = await Promise.allSettled(
-      data.items.slice(0, 5).map(async (item: any) => {
+      data.items.slice(0, 8).map(async (item: any) => {
         let description = "";
         let coverUrl = item.tiny_image || "";
         try {
@@ -535,8 +593,9 @@ async function searchSteam(query: string): Promise<SearchResult[]> {
           const d = await detail.json();
           const appData = d[item.id]?.data;
           if (appData) {
-            description = appData.short_description
-              || cleanText(appData.detailed_description || "").slice(0, 400);
+            description =
+              appData.short_description ||
+              cleanText(appData.detailed_description || "").slice(0, 400);
             coverUrl = appData.header_image || coverUrl;
           }
         } catch { /* optional */ }
@@ -559,7 +618,6 @@ async function searchSteam(query: string): Promise<SearchResult[]> {
   }
 }
 
-// BoardGameGeek XML API — for tabletop games
 async function searchBGG(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
@@ -568,19 +626,26 @@ async function searchBGG(query: string): Promise<SearchResult[]> {
     if (!res.ok) return [];
     const text = await res.text();
     const items: Array<{ id: string; title: string; year?: string }> = [];
-    const itemRegex = /<item[^>]+id="(\d+)"[^>]*>[\s\S]*?<name[^>]+value="([^"]+)"[\s\S]*?(?:<yearpublished[^>]+value="(\d+)")?/g;
+    const itemRegex =
+      /<item[^>]+id="(\d+)"[^>]*>[\s\S]*?<name[^>]+value="([^"]+)"[\s\S]*?(?:<yearpublished[^>]+value="(\d+)")?/g;
     let match;
-    while ((match = itemRegex.exec(text)) !== null && items.length < 8) {
+    while ((match = itemRegex.exec(text)) !== null && items.length < 15) {
       items.push({ id: match[1], title: match[2], year: match[3] });
     }
     if (items.length === 0) return [];
     try {
       const ids = items.map((i) => i.id).join(",");
-      const detailRes = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${ids}&stats=1`);
+      const detailRes = await fetch(
+        `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&stats=1`
+      );
       const detailText = await detailRes.text();
       return items.map((item) => {
-        const thumbMatch = new RegExp(`<item[^>]+id="${item.id}"[\\s\\S]*?<thumbnail>([^<]+)<\\/thumbnail>`).exec(detailText);
-        const descMatch = new RegExp(`<item[^>]+id="${item.id}"[\\s\\S]*?<description>([\\s\\S]*?)<\\/description>`).exec(detailText);
+        const thumbMatch = new RegExp(
+          `<item[^>]+id="${item.id}"[\\s\\S]*?<thumbnail>([^<]+)<\\/thumbnail>`
+        ).exec(detailText);
+        const descMatch = new RegExp(
+          `<item[^>]+id="${item.id}"[\\s\\S]*?<description>([\\s\\S]*?)<\\/description>`
+        ).exec(detailText);
         return {
           title: item.title,
           coverUrl: thumbMatch?.[1]?.trim() || "",
@@ -618,7 +683,7 @@ async function searchTMDBDocumentaries(query: string): Promise<SearchResult[]> {
     if (!data.results) return [];
     return data.results
       .filter((item: any) => item.genre_ids?.includes(99))
-      .slice(0, 6)
+      .slice(0, 10)
       .map((item: any) => ({
         title: item.title || item.name || "",
         coverUrl: item.poster_path
@@ -637,7 +702,9 @@ async function searchTMDBDocumentaries(query: string): Promise<SearchResult[]> {
 async function searchYouTubeDocumentaries(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query + " documentary")}&type=video&maxResults=6&key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY`
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+        query + " documentary"
+      )}&type=video&maxResults=8&key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY`
     );
     const data = await res.json();
     if (!data.items) return [];
@@ -646,7 +713,9 @@ async function searchYouTubeDocumentaries(query: string): Promise<SearchResult[]
       coverUrl: item.snippet.thumbnails?.high?.url || "",
       description: item.snippet.description || "",
       category: "documentaries" as MediaCategory,
-      year: item.snippet.publishedAt ? item.snippet.publishedAt.slice(0, 4) : undefined,
+      year: item.snippet.publishedAt
+        ? item.snippet.publishedAt.slice(0, 4)
+        : undefined,
       source: "YouTube",
     }));
   } catch {
@@ -661,13 +730,14 @@ async function searchYouTubeDocumentaries(query: string): Promise<SearchResult[]
 async function searchItunes(query: string, mediaType: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=${mediaType}&limit=8`
+      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=${mediaType}&limit=15`
     );
     const data = await res.json();
     if (!data.results) return [];
     return data.results
       .map((item: any) => {
-        const category: MediaCategory = mediaType === "podcast" ? "podcasts" : "music_albums";
+        const category: MediaCategory =
+          mediaType === "podcast" ? "podcasts" : "music_albums";
         const title = item.collectionName || item.trackName || "";
         const artist = item.artistName || "";
         const description = item.description
@@ -702,119 +772,109 @@ export async function searchMedia(
 ): Promise<SearchResult[]> {
   if (!query || query.length < 2) return [];
 
+  // Parse query into tokens — use titleQuery (no years) for API calls
+  // so "Absolute Batman 2022" hits APIs as "Absolute Batman" not the full string
+  const pq = parseQuery(query);
+  const apiQuery = pq.titleQuery || query; // fallback to raw if only years typed
+
   const promises: Promise<SearchResult[]>[] = [];
 
   if (!categoryHint || categoryHint === "all") {
-    promises.push(searchTMDB(query, "movie"));
-    promises.push(searchTMDB(query, "tv"));
-    promises.push(searchJikanAnime(query));
-    promises.push(searchAniList(query, "ANIME"));
-    promises.push(searchJikanManga(query));
-    promises.push(searchMangaDex(query));
-    promises.push(searchRAWG(query));
-    promises.push(searchSteam(query));
-    promises.push(searchGoogleBooks(query));
-    // Internet Archive — broad search across all mediatypes
-    promises.push(searchInternetArchive(query));
+    promises.push(searchTMDB(apiQuery, "movie"));
+    promises.push(searchTMDB(apiQuery, "tv"));
+    promises.push(searchJikanAnime(apiQuery));
+    promises.push(searchAniList(apiQuery, "ANIME"));
+    promises.push(searchJikanManga(apiQuery));
+    promises.push(searchMangaDex(apiQuery));
+    promises.push(searchRAWG(apiQuery));
+    promises.push(searchSteam(apiQuery));
+    promises.push(searchGoogleBooks(apiQuery));
+    promises.push(searchInternetArchive(apiQuery));
   } else {
     switch (categoryHint) {
       case "movies":
-        promises.push(searchTMDB(query, "movie"));
-        promises.push(searchOMDB(query));
-        promises.push(searchInternetArchive(query, "movies"));
+        promises.push(searchTMDB(apiQuery, "movie"));
+        promises.push(searchOMDB(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "movies"));
         break;
-
       case "tvshows":
       case "web_series":
-        promises.push(searchTMDB(query, "tv"));
-        promises.push(searchOMDB(query));
-        promises.push(searchInternetArchive(query, "movies"));
+        promises.push(searchTMDB(apiQuery, "tv"));
+        promises.push(searchOMDB(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "movies"));
         break;
-
       case "anime":
-        promises.push(searchJikanAnime(query));
-        promises.push(searchAniList(query, "ANIME"));
-        promises.push(searchInternetArchive(query, "movies"));
+        promises.push(searchJikanAnime(apiQuery));
+        promises.push(searchAniList(apiQuery, "ANIME"));
+        promises.push(searchInternetArchive(apiQuery, "movies"));
         break;
-
       case "manga":
       case "manhwa":
       case "manhua":
       case "webtoons":
       case "comics":
-        promises.push(searchJikanManga(query));
-        promises.push(searchMangaDex(query));
-        promises.push(searchAniList(query, "MANGA"));
-        promises.push(searchGoogleBooks(query));
-        promises.push(searchInternetArchive(query, "texts"));
+        promises.push(searchJikanManga(apiQuery));
+        promises.push(searchMangaDex(apiQuery));
+        promises.push(searchAniList(apiQuery, "MANGA"));
+        promises.push(searchGoogleBooks(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "texts"));
         break;
-
       case "novels":
       case "webnovels":
-        promises.push(searchOpenLibrary(query));
-        promises.push(searchGoogleBooks(query));
-        promises.push(searchInternetArchive(query, "texts"));
+        promises.push(searchOpenLibrary(apiQuery));
+        promises.push(searchGoogleBooks(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "texts"));
         break;
-
       case "lite_novel":
-        promises.push(searchJikanManga(query));
-        promises.push(searchAniList(query, "MANGA"));
-        promises.push(searchOpenLibrary(query));
-        promises.push(searchInternetArchive(query, "texts"));
+        promises.push(searchJikanManga(apiQuery));
+        promises.push(searchAniList(apiQuery, "MANGA"));
+        promises.push(searchOpenLibrary(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "texts"));
         break;
-
       case "audiobooks":
-        promises.push(searchOpenLibrary(query));
-        promises.push(searchGoogleBooks(query));
-        promises.push(searchItunes(query, "audiobook"));
-        promises.push(searchInternetArchive(query, "audio"));
+        promises.push(searchOpenLibrary(apiQuery));
+        promises.push(searchGoogleBooks(apiQuery));
+        promises.push(searchItunes(apiQuery, "audiobook"));
+        promises.push(searchInternetArchive(apiQuery, "audio"));
         break;
-
       case "games":
-        promises.push(searchRAWG(query));
-        promises.push(searchSteam(query));
-        promises.push(searchInternetArchive(query, "software"));
+        promises.push(searchRAWG(apiQuery));
+        promises.push(searchSteam(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "software"));
         break;
-
       case "visual_novels":
-        promises.push(searchRAWG(query));
-        promises.push(searchSteam(query));
-        promises.push(searchJikanAnime(query));
-        promises.push(searchInternetArchive(query, "software"));
+        promises.push(searchRAWG(apiQuery));
+        promises.push(searchSteam(apiQuery));
+        promises.push(searchJikanAnime(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "software"));
         break;
-
       case "documentaries":
-        promises.push(searchTMDBDocumentaries(query));
-        promises.push(searchYouTubeDocumentaries(query));
-        promises.push(searchInternetArchive(query, "movies"));
+        promises.push(searchTMDBDocumentaries(apiQuery));
+        promises.push(searchYouTubeDocumentaries(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "movies"));
         break;
-
       case "podcasts":
-        promises.push(searchItunes(query, "podcast"));
-        promises.push(searchInternetArchive(query, "audio"));
+        promises.push(searchItunes(apiQuery, "podcast"));
+        promises.push(searchInternetArchive(apiQuery, "audio"));
         break;
-
       case "music_albums":
-        promises.push(searchItunes(query, "music"));
-        promises.push(searchInternetArchive(query, "audio"));
+        promises.push(searchItunes(apiQuery, "music"));
+        promises.push(searchInternetArchive(apiQuery, "audio"));
         break;
-
       case "tabletop_games":
-        promises.push(searchBGG(query));
-        promises.push(searchGoogleBooks(query));
-        promises.push(searchInternetArchive(query, "texts"));
+        promises.push(searchBGG(apiQuery));
+        promises.push(searchGoogleBooks(apiQuery));
+        promises.push(searchInternetArchive(apiQuery, "texts"));
         break;
-
       case "esports":
-        promises.push(searchRAWG(query));
-        promises.push(searchTMDB(query, "tv"));
+        promises.push(searchRAWG(apiQuery));
+        promises.push(searchTMDB(apiQuery, "tv"));
         break;
-
       default:
-        promises.push(searchTMDB(query, "movie"));
-        promises.push(searchTMDB(query, "tv"));
-        promises.push(searchJikanAnime(query));
-        promises.push(searchInternetArchive(query));
+        promises.push(searchTMDB(apiQuery, "movie"));
+        promises.push(searchTMDB(apiQuery, "tv"));
+        promises.push(searchJikanAnime(apiQuery));
+        promises.push(searchInternetArchive(apiQuery));
     }
   }
 
@@ -824,5 +884,6 @@ export async function searchMedia(
     if (r.status === "fulfilled") combined.push(...r.value);
   }
 
-  return sortByRelevance(dedup(combined), query).slice(0, 12);
+  // Deduplicate then score+filter with tokenized query — returns up to 20 results (Issue #2)
+  return sortAndFilter(dedup(combined), pq).slice(0, 20);
 }
