@@ -1,4 +1,5 @@
 import { MediaCategory } from "@/types/media";
+import { fuzzyWordMatch, fuzzyScore } from "@/lib/fuzzyMatch";
 
 export interface SearchResult {
   title: string;

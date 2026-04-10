@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMediaStore } from "@/hooks/useMediaStore";
 import { MediaItem, MediaCategory, MediaStatus, ALL_CATEGORIES, CATEGORY_LABELS } from "@/types/media";
+import { fuzzyTitleMatch } from "@/lib/fuzzyMatch";
 import { Header } from "@/components/Header";
 import { CategoryTabs } from "@/components/CategoryTabs";
 import { CategoryRow } from "@/components/CategoryRow";
@@ -24,8 +25,7 @@ const Index = () => {
   const filteredItems = useMemo(() => {
     let result = items;
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((i) => i.name.toLowerCase().includes(q));
+      result = result.filter((i) => fuzzyTitleMatch(searchQuery, i.name));
     }
     if (statusFilter) {
       result = result.filter((i) => i.status === statusFilter);
