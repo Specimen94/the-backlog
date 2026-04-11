@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { MediaCategory, MediaStatus, ALL_CATEGORIES, CATEGORY_LABELS, getStatusLabel } from "@/types/media";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,10 @@ interface AddMediaModalProps {
   } | null;
 }
 
+function normalizeSearchQuery(value: string) {
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalProps) {
   const [name, setName] = useState(editItem?.name || "");
   const [coverUrl, setCoverUrl] = useState(editItem?.coverUrl || "");
@@ -47,8 +51,10 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
   const [autoFilled, setAutoFilled] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const normalizedSearchQuery = useMemo(() => normalizeSearchQuery(name), [name]);
 
   useEffect(() => {
     if (editItem) {
@@ -64,33 +70,42 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
   }, [editItem]);
 
   useEffect(() => {
-    if (editItem || name.length < 2) {
+    if (editItem || normalizedSearchQuery.length < 2) {
+      requestIdRef.current += 1;
+      setIsSearching(false);
+      setSearchError(null);
       setSearchResults([]);
       setShowDropdown(false);
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const requestId = ++requestIdRef.current;
 
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true);
       setSearchError(null);
       try {
-        const results = await searchMedia(name, category);
+        const results = await searchMedia(normalizedSearchQuery, category);
+        if (requestId !== requestIdRef.current) return;
         setSearchResults(results);
         setShowDropdown(results.length > 0);
       } catch {
+        if (requestId !== requestIdRef.current) return;
+        setSearchResults([]);
         setSearchError("Search failed. You can still add manually.");
         setShowDropdown(false);
       } finally {
-        setIsSearching(false);
+        if (requestId === requestIdRef.current) {
+          setIsSearching(false);
+        }
       }
     }, 500);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [name, category, editItem]);
+  }, [normalizedSearchQuery, category, editItem]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -237,7 +252,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
             )}
 
             {searchError && <p className="text-[10px] text-muted-foreground mt-1">{searchError}</p>}
-            {!editItem && name.length >= 2 && !isSearching && searchResults.length === 0 && !searchError && (
+            {!editItem && normalizedSearchQuery.length >= 2 && !isSearching && searchResults.length === 0 && !searchError && (
               <p className="text-[10px] text-muted-foreground mt-1">No results found — you can still fill in details manually below.</p>
             )}
           </div>
