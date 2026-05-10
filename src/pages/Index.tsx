@@ -174,6 +174,18 @@ const Index = () => {
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
+
+      <LayoutsPanel
+        open={showLayouts}
+        onClose={() => setShowLayouts(false)}
+        layouts={layouts}
+        currentItems={items}
+        onSave={saveLayout}
+        onOverwrite={overwriteLayout}
+        onLoad={replaceAll}
+        onRename={renameLayout}
+        onDelete={deleteLayout}
+      />
     </div>
   );
 };
