@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMediaStore } from "@/hooks/useMediaStore";
+import { useLayouts } from "@/hooks/useLayouts";
 import { MediaItem, MediaCategory, MediaStatus, ALL_CATEGORIES, CATEGORY_LABELS } from "@/types/media";
 import { fuzzyTitleMatch } from "@/lib/fuzzyMatch";
 import { Header } from "@/components/Header";
@@ -8,12 +9,15 @@ import { CategoryRow } from "@/components/CategoryRow";
 import { MediaCard } from "@/components/MediaCard";
 import { AddMediaModal } from "@/components/AddMediaModal";
 import { MediaDetailModal } from "@/components/MediaDetailModal";
+import { LayoutsPanel } from "@/components/LayoutsPanel";
 import { BookOpen } from "lucide-react";
 
 const Index = () => {
-  const { items, addItem, updateItem, deleteItem, updateStatus, exportData, importData } = useMediaStore();
+  const { items, addItem, updateItem, deleteItem, updateStatus, replaceAll, exportData, importData } = useMediaStore();
+  const { layouts, saveLayout, overwriteLayout, renameLayout, deleteLayout } = useLayouts();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showLayouts, setShowLayouts] = useState(false);
   const [editItem, setEditItem] = useState<MediaItem | null>(null);
   const [detailItem, setDetailItem] = useState<MediaItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,6 +94,7 @@ const Index = () => {
         onAddClick={() => { setEditItem(null); setShowAddModal(true); }}
         onExport={exportData}
         onImport={importData}
+        onLayoutsClick={() => setShowLayouts(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
@@ -168,6 +173,18 @@ const Index = () => {
         onClose={() => setDetailItem(null)}
         onEdit={handleEdit}
         onDelete={handleDelete}
+      />
+
+      <LayoutsPanel
+        open={showLayouts}
+        onClose={() => setShowLayouts(false)}
+        layouts={layouts}
+        currentItems={items}
+        onSave={saveLayout}
+        onOverwrite={overwriteLayout}
+        onLoad={replaceAll}
+        onRename={renameLayout}
+        onDelete={deleteLayout}
       />
     </div>
   );

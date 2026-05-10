@@ -44,6 +44,10 @@ export function useMediaStore() {
     updateItem(id, { status });
   }, [updateItem]);
 
+  const replaceAll = useCallback((newItems: MediaItem[]) => {
+    setItems(newItems);
+  }, []);
+
   const exportData = useCallback(() => {
     const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -69,5 +73,5 @@ export function useMediaStore() {
     reader.readAsText(file);
   }, []);
 
-  return { items, addItem, updateItem, deleteItem, updateStatus, exportData, importData };
+  return { items, addItem, updateItem, deleteItem, updateStatus, replaceAll, exportData, importData };
 }

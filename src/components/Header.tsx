@@ -1,4 +1,4 @@
-import { Plus, Download, Upload, Search } from "lucide-react";
+import { Plus, Download, Upload, Search, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRef } from "react";
@@ -7,11 +7,12 @@ interface HeaderProps {
   onAddClick: () => void;
   onExport: () => void;
   onImport: (file: File) => void;
+  onLayoutsClick: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
 }
 
-export function Header({ onAddClick, onExport, onImport, searchQuery, onSearchChange }: HeaderProps) {
+export function Header({ onAddClick, onExport, onImport, onLayoutsClick, searchQuery, onSearchChange }: HeaderProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -38,6 +39,9 @@ export function Header({ onAddClick, onExport, onImport, searchQuery, onSearchCh
         <div className="flex items-center gap-2">
           <Button onClick={onAddClick} className="bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5">
             <Plus className="w-4 h-4" /> Add Media
+          </Button>
+          <Button variant="outline" onClick={onLayoutsClick} className="border-border text-foreground hover:bg-surface-hover gap-1.5" title="My Layouts">
+            <Layers className="w-4 h-4" /> Layouts
           </Button>
           <Button variant="outline" size="icon" onClick={onExport} className="border-border text-foreground hover:bg-surface-hover" title="Export watchlist">
             <Download className="w-4 h-4" />
