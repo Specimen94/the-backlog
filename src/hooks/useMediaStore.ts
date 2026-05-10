@@ -73,5 +73,5 @@ export function useMediaStore() {
     reader.readAsText(file);
   }, []);
 
-  return { items, addItem, updateItem, deleteItem, updateStatus, exportData, importData };
+  return { items, addItem, updateItem, deleteItem, updateStatus, replaceAll, exportData, importData };
 }
