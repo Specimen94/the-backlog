@@ -1,7 +1,7 @@
-import { MediaItem, CATEGORY_LABELS, STATUS_COLORS, getStatusLabel } from "@/types/media";
+import { MediaItem, MediaStatus, CATEGORY_LABELS, STATUS_COLORS, getStatusLabel } from "@/types/media";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Star, Pencil, Trash2, Calendar } from "lucide-react";
+import { Star, Pencil, Trash2, Calendar, Ban } from "lucide-react";
 
 interface MediaDetailModalProps {
   item: MediaItem | null;
@@ -9,9 +9,10 @@ interface MediaDetailModalProps {
   onClose: () => void;
   onEdit: (item: MediaItem) => void;
   onDelete: (id: string) => void;
+  onDrop: (id: string) => void;
 }
 
-export function MediaDetailModal({ item, open, onClose, onEdit, onDelete }: MediaDetailModalProps) {
+export function MediaDetailModal({ item, open, onClose, onEdit, onDelete, onDrop }: MediaDetailModalProps) {
   if (!item) return null;
 
   return (
@@ -82,6 +83,16 @@ export function MediaDetailModal({ item, open, onClose, onEdit, onDelete }: Medi
               >
                 <Pencil className="w-4 h-4 mr-1" /> Edit
               </Button>
+              {item.status !== "dropped" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-status-dropped/50 text-status-dropped hover:bg-status-dropped/10"
+                  onClick={() => onDrop(item.id)}
+                >
+                  <Ban className="w-4 h-4 mr-1" /> Dropped
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

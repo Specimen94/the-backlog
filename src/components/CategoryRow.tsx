@@ -7,10 +7,11 @@ interface CategoryRowProps {
   category: MediaCategory;
   items: MediaItem[];
   onStatusChange: (id: string, status: MediaStatus) => void;
+  onDelete: (id: string) => void;
   onItemClick: (item: MediaItem) => void;
 }
 
-export function CategoryRow({ category, items, onStatusChange, onItemClick }: CategoryRowProps) {
+export function CategoryRow({ category, items, onStatusChange, onDelete, onItemClick }: CategoryRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: "left" | "right") => {
@@ -36,7 +37,7 @@ export function CategoryRow({ category, items, onStatusChange, onItemClick }: Ca
         </button>
         <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide px-1" style={{ scrollbarWidth: "none" }}>
           {items.map((item) => (
-            <MediaCard key={item.id} item={item} onStatusChange={onStatusChange} onClick={onItemClick} />
+            <MediaCard key={item.id} item={item} onStatusChange={onStatusChange} onDelete={onDelete} onClick={onItemClick} />
           ))}
         </div>
         <button

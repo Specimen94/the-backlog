@@ -140,6 +140,7 @@ const Index = () => {
               category={cat}
               items={groupedItems[cat] || []}
               onStatusChange={handleStatusChange}
+              onDelete={deleteItem}
               onItemClick={handleItemClick}
             />
           ))
@@ -152,7 +153,7 @@ const Index = () => {
             </h2>
             <div className="flex flex-wrap gap-4">
               {displayItems.map((item) => (
-                <MediaCard key={item.id} item={item} onStatusChange={handleStatusChange} onClick={handleItemClick} />
+                <MediaCard key={item.id} item={item} onStatusChange={handleStatusChange} onDelete={deleteItem} onClick={handleItemClick} />
               ))}
             </div>
           </div>
@@ -173,6 +174,7 @@ const Index = () => {
         onClose={() => setDetailItem(null)}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onDrop={(id) => { updateStatus(id, "dropped"); setDetailItem(null); }}
       />
 
       <LayoutsPanel

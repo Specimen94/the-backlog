@@ -38,7 +38,7 @@ function normalizeSearchQuery(value: string) {
 export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalProps) {
   const [name, setName] = useState(editItem?.name || "");
   const [coverUrl, setCoverUrl] = useState(editItem?.coverUrl || "");
-  const [category, setCategory] = useState<MediaCategory>(editItem?.category || "anime");
+  const [category, setCategory] = useState<MediaCategory | null>(editItem?.category ?? null);
   const [status, setStatus] = useState<MediaStatus>(editItem?.status || "plan_to_watch");
   const [rating, setRating] = useState<number | null>(editItem?.rating ?? null);
   const [showRating, setShowRating] = useState(editItem?.showRating ?? true);
@@ -86,7 +86,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
       setIsSearching(true);
       setSearchError(null);
       try {
-        const results = await searchMedia(normalizedSearchQuery, category);
+        const results = await searchMedia(normalizedSearchQuery, category ?? "all");
         if (requestId !== requestIdRef.current) return;
         setSearchResults(results);
         setShowDropdown(results.length > 0);
@@ -121,9 +121,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
     setName(result.title);
     if (result.coverUrl) setCoverUrl(result.coverUrl);
     if (result.description) setDescription(result.description);
-    // FIX: Do NOT override the user's selected category.
-    // The category the user chose in the dropdown always takes priority.
-    // result.category is only shown as an informational tag in the dropdown.
+    // If user hasn't picked a category, auto-adopt the result's category
+    setCategory((prev) => prev ?? result.category);
     setShowDropdown(false);
     setAutoFilled(true);
   }, []);
@@ -138,7 +137,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
   };
 
   const handleSubmit = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !category) return;
     onAdd({
       name: name.trim(),
       coverUrl: coverUrl.trim(),
@@ -155,7 +154,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
   const resetForm = () => {
     setName("");
     setCoverUrl("");
-    setCategory("anime");
+    setCategory(null);
     setStatus("plan_to_watch");
     setRating(null);
     setShowRating(true);
@@ -276,10 +275,10 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
 
           {/* Category */}
           <div>
-            <label className="text-sm text-muted-foreground mb-1 block">Category</label>
-            <Select value={category} onValueChange={(v) => setCategory(v as MediaCategory)}>
+            <label className="text-sm text-muted-foreground mb-1 block">Category *</label>
+            <Select value={category ?? undefined} onValueChange={(v) => setCategory(v as MediaCategory)}>
               <SelectTrigger className="bg-muted border-border text-foreground">
-                <SelectValue />
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
                 {ALL_CATEGORIES.map((cat) => (
@@ -289,6 +288,9 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
                 ))}
               </SelectContent>
             </Select>
+            {!category && (
+              <p className="text-[10px] text-muted-foreground mt-1">Search will look across all categories until one is picked.</p>
+            )}
           </div>
 
           {/* Status — uses category-aware labels */}
@@ -301,7 +303,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
               <SelectContent className="bg-card border-border">
                 {statusOptions.map((s) => (
                   <SelectItem key={s} value={s} className="text-foreground hover:bg-surface-hover">
-                    {getStatusLabel(s, category)}
+                    {getStatusLabel(s, category ?? undefined)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -339,7 +341,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
             />
           </div>
 
-          <Button onClick={handleSubmit} disabled={!name.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button onClick={handleSubmit} disabled={!name.trim() || !category} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
             {editItem ? "Save Changes" : "Add to Back-Log"}
           </Button>
         </div>
