@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { MediaItem, MediaStatus, getStatusLabel } from "@/types/media";
-import { Star } from "lucide-react";
-import { StatusConfirmDialog } from "./StatusConfirmDialog";
+import { Star, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MediaCardProps {
   item: MediaItem;
   onStatusChange: (id: string, status: MediaStatus) => void;
+  onDelete: (id: string) => void;
   onClick: (item: MediaItem) => void;
 }
 
@@ -16,16 +26,8 @@ const statusButtonStyles: Record<MediaStatus, string> = {
   dropped: "bg-status-dropped/90 hover:bg-status-dropped",
 };
 
-export function MediaCard({ item, onStatusChange, onClick }: MediaCardProps) {
-  const [confirmStatus, setConfirmStatus] = useState<MediaStatus | null>(null);
-
-  const handleStatusClick = (status: MediaStatus) => {
-    if (status === "dropped") {
-      setConfirmStatus(status);
-    } else {
-      onStatusChange(item.id, status);
-    }
-  };
+export function MediaCard({ item, onStatusChange, onDelete, onClick }: MediaCardProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <>
@@ -36,12 +38,7 @@ export function MediaCard({ item, onStatusChange, onClick }: MediaCardProps) {
         <div className="media-card-glow rounded-lg overflow-hidden bg-card border border-border/50">
           <div className="relative aspect-[2/3] overflow-hidden bg-muted">
             {item.coverUrl ? (
-              <img
-                src={item.coverUrl}
-                alt={item.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
+              <img src={item.coverUrl} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center p-2">
                 No Cover
@@ -65,15 +62,18 @@ export function MediaCard({ item, onStatusChange, onClick }: MediaCardProps) {
               {(["watching", "plan_to_watch", "finished", "dropped"] as MediaStatus[]).map((status) => (
                 <button
                   key={status}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStatusClick(status);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, status); }}
                   className={`w-full py-1.5 rounded-md text-xs font-medium text-primary-foreground transition-all ${statusButtonStyles[status]} ${item.status === status ? "ring-2 ring-foreground/50" : ""}`}
                 >
                   {getStatusLabel(status, item.category)}
                 </button>
               ))}
+              <button
+                onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+                className="w-full py-1.5 rounded-md text-xs font-semibold text-destructive-foreground bg-destructive/90 hover:bg-destructive transition-all flex items-center justify-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" /> Delete
+              </button>
             </div>
           </div>
 
@@ -84,18 +84,25 @@ export function MediaCard({ item, onStatusChange, onClick }: MediaCardProps) {
         </div>
       </div>
 
-      {confirmStatus && (
-        <StatusConfirmDialog
-          mediaName={item.name}
-          newStatus={confirmStatus}
-          newStatusLabel={getStatusLabel(confirmStatus, item.category)}
-          onConfirm={() => {
-            onStatusChange(item.id, confirmStatus);
-            setConfirmStatus(null);
-          }}
-          onCancel={() => setConfirmStatus(null)}
-        />
-      )}
+      <AlertDialog open={confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(false)}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">Delete "{item.name}"?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              This permanently removes it from your back-log. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-muted text-foreground border-border hover:bg-surface-hover">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { onDelete(item.id); setConfirmDelete(false); }}
+            >
+              Yes, delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
