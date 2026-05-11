@@ -2,6 +2,7 @@ import { Plus, Download, Upload, Search, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRef } from "react";
+import logoB from "@/assets/logo-b.png";
 
 interface HeaderProps {
   onAddClick: () => void;
@@ -19,9 +20,12 @@ export function Header({ onAddClick, onExport, onImport, onLayoutsClick, searchQ
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
       <div className="container mx-auto px-4 py-4 flex items-center gap-4 flex-wrap">
         {/* Logo */}
-        <h1 className="text-xl font-bold tracking-tight">
-          <span className="text-primary">THE</span>{" "}
-          <span className="text-foreground">BACK-LOG</span>
+        <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+          <img src={logoB} alt="THE BACK-LOG logo" width={32} height={32} className="w-8 h-8 object-contain drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" />
+          <span>
+            <span className="text-primary">THE</span>{" "}
+            <span className="text-foreground">BACK-LOG</span>
+          </span>
         </h1>
 
         {/* Search */}
