@@ -135,18 +135,18 @@ const Index = () => {
           </div>
         ) : activeCategory === "all" ? (
           <>
-          {!searchQuery && <UpcomingRows existingItems={items} onAdd={addItem} />}
-          {/* Netflix-style category rows */}
-          populatedCategories.map((cat) => (
-            <CategoryRow
-              key={cat}
-              category={cat}
-              items={groupedItems[cat] || []}
-              onStatusChange={handleStatusChange}
-              onDelete={deleteItem}
-              onItemClick={handleItemClick}
-            />
-          ))
+            {!searchQuery && <UpcomingRows existingItems={items} onAdd={addItem} />}
+            {populatedCategories.map((cat) => (
+              <CategoryRow
+                key={cat}
+                category={cat}
+                items={groupedItems[cat] || []}
+                onStatusChange={handleStatusChange}
+                onDelete={deleteItem}
+                onItemClick={handleItemClick}
+              />
+            ))}
+          </>
         ) : (
           // Grid view for single category
           <div>
