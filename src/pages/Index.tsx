@@ -10,6 +10,7 @@ import { MediaCard } from "@/components/MediaCard";
 import { AddMediaModal } from "@/components/AddMediaModal";
 import { MediaDetailModal } from "@/components/MediaDetailModal";
 import { LayoutsPanel } from "@/components/LayoutsPanel";
+import { UpcomingRows } from "@/components/UpcomingRows";
 import { BookOpen } from "lucide-react";
 
 const Index = () => {
@@ -133,17 +134,19 @@ const Index = () => {
             <p className="text-muted-foreground">No media found matching your search.</p>
           </div>
         ) : activeCategory === "all" ? (
-          // Netflix-style category rows
-          populatedCategories.map((cat) => (
-            <CategoryRow
-              key={cat}
-              category={cat}
-              items={groupedItems[cat] || []}
-              onStatusChange={handleStatusChange}
-              onDelete={deleteItem}
-              onItemClick={handleItemClick}
-            />
-          ))
+          <>
+            {!searchQuery && <UpcomingRows existingItems={items} onAdd={addItem} />}
+            {populatedCategories.map((cat) => (
+              <CategoryRow
+                key={cat}
+                category={cat}
+                items={groupedItems[cat] || []}
+                onStatusChange={handleStatusChange}
+                onDelete={deleteItem}
+                onItemClick={handleItemClick}
+              />
+            ))}
+          </>
         ) : (
           // Grid view for single category
           <div>
