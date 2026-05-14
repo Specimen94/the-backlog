@@ -32,7 +32,7 @@ export async function getUpcomingMovies(): Promise<UpcomingItem[]> {
     coverUrl: r.poster_path ? `${IMG}${r.poster_path}` : "",
     description: r.overview || "",
     releaseDate: r.release_date || "",
-    category: "movie" as MediaCategory,
+    category: "movies" as MediaCategory,
   }));
 }
 
@@ -45,7 +45,7 @@ export async function getOnAirTV(): Promise<UpcomingItem[]> {
     coverUrl: r.poster_path ? `${IMG}${r.poster_path}` : "",
     description: r.overview || "",
     releaseDate: r.first_air_date || "",
-    category: "tv_show" as MediaCategory,
+    category: "tvshows" as MediaCategory,
   }));
 }
 
