@@ -775,7 +775,7 @@ export async function searchMedia(
     promises.push(searchAniList(apiQuery, "ANIME"));
     promises.push(searchJikanManga(apiQuery));
     promises.push(searchMangaDex(apiQuery));
-    promises.push(searchRAWG(apiQuery));
+    promises.push(searchCheapShark(apiQuery));
     promises.push(searchSteam(apiQuery));
     promises.push(searchGoogleBooks(apiQuery));
     promises.push(searchInternetArchive(apiQuery));
@@ -827,12 +827,12 @@ export async function searchMedia(
         promises.push(searchInternetArchive(apiQuery, "audio"));
         break;
       case "games":
-        promises.push(searchRAWG(apiQuery));
+        promises.push(searchCheapShark(apiQuery));
         promises.push(searchSteam(apiQuery));
         promises.push(searchInternetArchive(apiQuery, "software"));
         break;
       case "visual_novels":
-        promises.push(searchRAWG(apiQuery));
+        promises.push(searchCheapShark(apiQuery));
         promises.push(searchSteam(apiQuery));
         promises.push(searchJikanAnime(apiQuery));
         promises.push(searchInternetArchive(apiQuery, "software"));
@@ -856,7 +856,7 @@ export async function searchMedia(
         promises.push(searchInternetArchive(apiQuery, "texts"));
         break;
       case "esports":
-        promises.push(searchRAWG(apiQuery));
+        promises.push(searchCheapShark(apiQuery));
         promises.push(searchTMDB(apiQuery, "tv"));
         break;
       default:
