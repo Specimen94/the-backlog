@@ -890,11 +890,51 @@ export async function searchMedia(
   }
 
   const settled = await Promise.allSettled(promises);
-  const combined: SearchResult[] = [];
+
+  // Group results by source, score+filter each group independently so a single
+  // noisy source (e.g. Internet Archive) can't drown out the others.
+  const bySource = new Map<string, SearchResult[]>();
   for (const r of settled) {
-    if (r.status === "fulfilled") combined.push(...r.value);
+    if (r.status !== "fulfilled") continue;
+    for (const item of r.value) {
+      const key = item.source || "other";
+      if (!bySource.has(key)) bySource.set(key, []);
+      bySource.get(key)!.push(item);
+    }
   }
 
-  // Deduplicate then score+filter with tokenized query — returns up to 20 results (Issue #2)
-  return sortAndFilter(dedup(combined), pq).slice(0, 20);
+  // Per-source cap. Internet Archive is the noisiest by far → tightest cap.
+  const PER_SOURCE_CAP: Record<string, number> = {
+    "Internet Archive": 4,
+  };
+  const DEFAULT_CAP = 8;
+
+  const rankedPerSource: SearchResult[][] = [];
+  for (const [source, items] of bySource) {
+    const ranked = sortAndFilter(dedup(items), pq);
+    const cap = PER_SOURCE_CAP[source] ?? DEFAULT_CAP;
+    rankedPerSource.push(ranked.slice(0, cap));
+  }
+
+  // Sort source-buckets so the one with the best top hit goes first
+  rankedPerSource.sort((a, b) => scoreResult(a[0], pq) - scoreResult(b[0], pq));
+
+  // Round-robin interleave: pick the next-best item from each source in turn
+  // so every API gets visible representation in the dropdown.
+  const interleaved: SearchResult[] = [];
+  let added = true;
+  let idx = 0;
+  while (added) {
+    added = false;
+    for (const bucket of rankedPerSource) {
+      if (idx < bucket.length) {
+        interleaved.push(bucket[idx]);
+        added = true;
+      }
+    }
+    idx++;
+  }
+
+  // Final dedup across sources (same title from MAL + AniList etc.) then cap.
+  return dedup(interleaved).slice(0, 30);
 }
