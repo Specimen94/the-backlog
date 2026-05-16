@@ -548,81 +548,59 @@ async function searchOMDB(query: string): Promise<SearchResult[]> {
 // GAMES
 // ─────────────────────────────────────────────
 
-async function searchRAWG(query: string): Promise<SearchResult[]> {
+// CheapShark — keyless, CORS-enabled, returns Steam game thumbnails.
+// Replaces RAWG (whose free key was invalid).
+async function searchCheapShark(query: string): Promise<SearchResult[]> {
   try {
     const res = await fetch(
-      `https://api.rawg.io/api/games?search=${encodeURIComponent(query)}&page_size=15&key=f9e3b7c1d4e5a6b2c3d4e5f6a7b8c9d0`
+      `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(query)}&limit=15`
     );
+    if (!res.ok) return [];
     const data = await res.json();
-    if (!data.results) return [];
-    const detailed = await Promise.allSettled(
-      data.results.slice(0, 8).map(async (item: any) => {
-        let description = "";
-        try {
-          const detail = await fetch(
-            `https://api.rawg.io/api/games/${item.id}?key=f9e3b7c1d4e5a6b2c3d4e5f6a7b8c9d0`
-          );
-          const d = await detail.json();
-          description = d.description_raw
-            ? d.description_raw.slice(0, 400).trim()
-            : cleanText(d.description || "").slice(0, 400);
-        } catch { /* optional */ }
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((item: any): SearchResult => {
+        const thumb: string = item.thumb || "";
+        const coverUrl = item.steamAppID
+          ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${item.steamAppID}/header.jpg`
+          : thumb;
         return {
-          title: item.name,
-          coverUrl: item.background_image || "",
-          description,
+          title: item.external || "",
+          coverUrl,
+          description: item.cheapest ? `Currently from $${item.cheapest} on Steam.` : "",
           category: "games" as MediaCategory,
-          year: item.released ? item.released.slice(0, 4) : undefined,
-          source: "RAWG",
+          year: undefined,
+          source: "CheapShark",
         };
       })
-    );
-    return detailed
-      .filter((r) => r.status === "fulfilled")
-      .map((r) => (r as PromiseFulfilledResult<SearchResult>).value);
+      .filter((r) => r.title);
   } catch {
     return [];
   }
 }
 
+// Steam's storesearch endpoint blocks browser requests (no CORS).
+// Route through allorigins so the dropdown actually gets Steam results.
+const CORS_PROXY = "https://api.allorigins.win/raw?url=";
 async function searchSteam(query: string): Promise<SearchResult[]> {
   try {
-    const res = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`
-    );
+    const target = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`;
+    const res = await fetch(`${CORS_PROXY}${encodeURIComponent(target)}`);
     if (!res.ok) return [];
     const data = await res.json();
     if (!data.items) return [];
-    const detailed = await Promise.allSettled(
-      data.items.slice(0, 8).map(async (item: any) => {
-        let description = "";
-        let coverUrl = item.tiny_image || "";
-        try {
-          const detail = await fetch(
-            `https://store.steampowered.com/api/appdetails?appids=${item.id}&cc=us&l=en`
-          );
-          const d = await detail.json();
-          const appData = d[item.id]?.data;
-          if (appData) {
-            description =
-              appData.short_description ||
-              cleanText(appData.detailed_description || "").slice(0, 400);
-            coverUrl = appData.header_image || coverUrl;
-          }
-        } catch { /* optional */ }
-        return {
-          title: item.name || "",
-          coverUrl,
-          description,
-          category: "games" as MediaCategory,
-          year: undefined,
-          source: "Steam",
-        };
-      })
-    );
-    return detailed
-      .filter((r) => r.status === "fulfilled")
-      .map((r) => (r as PromiseFulfilledResult<SearchResult>).value)
+    return data.items
+      .slice(0, 10)
+      .map((item: any): SearchResult => ({
+        title: item.name || "",
+        coverUrl: item.id
+          ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${item.id}/header.jpg`
+          : item.tiny_image || "",
+        description: item.metascore ? `Metascore: ${item.metascore}.` : "",
+        category: "games" as MediaCategory,
+        year: undefined,
+        source: "Steam",
+      }))
       .filter((r) => r.title);
   } catch {
     return [];
@@ -797,7 +775,7 @@ export async function searchMedia(
     promises.push(searchAniList(apiQuery, "ANIME"));
     promises.push(searchJikanManga(apiQuery));
     promises.push(searchMangaDex(apiQuery));
-    promises.push(searchRAWG(apiQuery));
+    promises.push(searchCheapShark(apiQuery));
     promises.push(searchSteam(apiQuery));
     promises.push(searchGoogleBooks(apiQuery));
     promises.push(searchInternetArchive(apiQuery));
@@ -849,12 +827,12 @@ export async function searchMedia(
         promises.push(searchInternetArchive(apiQuery, "audio"));
         break;
       case "games":
-        promises.push(searchRAWG(apiQuery));
+        promises.push(searchCheapShark(apiQuery));
         promises.push(searchSteam(apiQuery));
         promises.push(searchInternetArchive(apiQuery, "software"));
         break;
       case "visual_novels":
-        promises.push(searchRAWG(apiQuery));
+        promises.push(searchCheapShark(apiQuery));
         promises.push(searchSteam(apiQuery));
         promises.push(searchJikanAnime(apiQuery));
         promises.push(searchInternetArchive(apiQuery, "software"));
@@ -878,7 +856,7 @@ export async function searchMedia(
         promises.push(searchInternetArchive(apiQuery, "texts"));
         break;
       case "esports":
-        promises.push(searchRAWG(apiQuery));
+        promises.push(searchCheapShark(apiQuery));
         promises.push(searchTMDB(apiQuery, "tv"));
         break;
       default:
