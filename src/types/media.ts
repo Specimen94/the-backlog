@@ -22,6 +22,11 @@ export type MediaCategory =
   | "tabletop_games"
   | "esports";
 
+export interface MediaProgress {
+  current: number;
+  total: number | null;
+}
+
 export interface MediaItem {
   id: string;
   name: string;
@@ -32,6 +37,32 @@ export interface MediaItem {
   showRating: boolean;
   description: string;
   dateAdded: string;
+  progress?: MediaProgress;
+}
+
+// Per-category progress unit. Categories not listed don't track progress.
+export const PROGRESS_UNITS: Partial<Record<MediaCategory, { unit: string; unitShort: string }>> = {
+  tvshows:        { unit: "episodes", unitShort: "ep" },
+  anime:          { unit: "episodes", unitShort: "ep" },
+  web_series:     { unit: "episodes", unitShort: "ep" },
+  podcasts:       { unit: "episodes", unitShort: "ep" },
+  manga:          { unit: "chapters", unitShort: "ch" },
+  manhua:         { unit: "chapters", unitShort: "ch" },
+  manhwa:         { unit: "chapters", unitShort: "ch" },
+  comics:         { unit: "issues",   unitShort: "#"  },
+  webtoons:       { unit: "chapters", unitShort: "ch" },
+  webnovels:      { unit: "chapters", unitShort: "ch" },
+  lite_novel:     { unit: "chapters", unitShort: "ch" },
+  visual_novels:  { unit: "chapters", unitShort: "ch" },
+  novels:         { unit: "pages",    unitShort: "pg" },
+  games:          { unit: "hours",    unitShort: "h"  },
+  tabletop_games: { unit: "sessions", unitShort: "s"  },
+  audiobooks:     { unit: "hours",    unitShort: "h"  },
+  music_albums:   { unit: "tracks",   unitShort: "tr" },
+};
+
+export function hasProgress(category: MediaCategory) {
+  return Boolean(PROGRESS_UNITS[category]);
 }
 
 export const CATEGORY_LABELS: Record<MediaCategory, string> = {
