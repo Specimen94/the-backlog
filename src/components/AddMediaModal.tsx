@@ -144,6 +144,17 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
 
   const handleSubmit = () => {
     if (!name.trim() || !category) return;
+    let progress: MediaProgress | undefined;
+    if (hasProgress(category)) {
+      const cur = parseFloat(progressCurrent);
+      const tot = parseFloat(progressTotal);
+      if (!Number.isNaN(cur) || !Number.isNaN(tot)) {
+        progress = {
+          current: Number.isNaN(cur) ? 0 : Math.max(0, cur),
+          total: Number.isNaN(tot) ? null : Math.max(0, tot),
+        };
+      }
+    }
     onAdd({
       name: name.trim(),
       coverUrl: coverUrl.trim(),
@@ -152,6 +163,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
       rating,
       showRating,
       description: description.trim(),
+      progress,
     });
     resetForm();
     onClose();
@@ -165,6 +177,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
     setRating(null);
     setShowRating(true);
     setDescription("");
+    setProgressCurrent("");
+    setProgressTotal("");
     setSearchResults([]);
     setShowDropdown(false);
     setAutoFilled(false);
