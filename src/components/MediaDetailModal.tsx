@@ -1,7 +1,8 @@
-import { MediaItem, MediaStatus, CATEGORY_LABELS, STATUS_COLORS, getStatusLabel } from "@/types/media";
+import { MediaItem, MediaStatus, CATEGORY_LABELS, STATUS_COLORS, getStatusLabel, PROGRESS_UNITS } from "@/types/media";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Star, Pencil, Trash2, Calendar, Ban } from "lucide-react";
+import { Star, Pencil, Trash2, Calendar, Ban, Minus, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface MediaDetailModalProps {
   item: MediaItem | null;
@@ -10,9 +11,10 @@ interface MediaDetailModalProps {
   onEdit: (item: MediaItem) => void;
   onDelete: (id: string) => void;
   onDrop: (id: string) => void;
+  onUpdateProgress?: (id: string, current: number, total: number | null) => void;
 }
 
-export function MediaDetailModal({ item, open, onClose, onEdit, onDelete, onDrop }: MediaDetailModalProps) {
+export function MediaDetailModal({ item, open, onClose, onEdit, onDelete, onDrop, onUpdateProgress }: MediaDetailModalProps) {
   if (!item) return null;
 
   return (
