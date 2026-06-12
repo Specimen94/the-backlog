@@ -4,6 +4,9 @@ A universal media backlog and watchlist app that lets you track everything you w
 
 ![Preview](https://id-preview--cffbadfc-9673-4f4f-93f2-c81e5e146076.lovable.app)
 
+<img width="1876" height="1077" alt="image" src="https://github.com/user-attachments/assets/2509d39d-6e12-4895-aa2f-f6bbe5e0bd68" />
+
+
 ---
 
 ## What It Does
