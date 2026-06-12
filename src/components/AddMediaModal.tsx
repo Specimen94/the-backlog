@@ -19,6 +19,7 @@ interface AddMediaModalProps {
     rating: number | null;
     showRating: boolean;
     description: string;
+    progress?: MediaProgress;
   }) => void;
   editItem?: {
     name: string;
@@ -28,6 +29,7 @@ interface AddMediaModalProps {
     rating: number | null;
     showRating: boolean;
     description: string;
+    progress?: MediaProgress;
   } | null;
 }
 
