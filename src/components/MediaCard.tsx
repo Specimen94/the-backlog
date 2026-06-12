@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MediaItem, MediaStatus, getStatusLabel } from "@/types/media";
+import { MediaItem, MediaStatus, getStatusLabel, PROGRESS_UNITS } from "@/types/media";
 import { Star, Trash2 } from "lucide-react";
 import {
   AlertDialog,
