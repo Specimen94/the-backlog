@@ -45,6 +45,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
   const [rating, setRating] = useState<number | null>(editItem?.rating ?? null);
   const [showRating, setShowRating] = useState(editItem?.showRating ?? true);
   const [description, setDescription] = useState(editItem?.description || "");
+  const [progressCurrent, setProgressCurrent] = useState<string>(editItem?.progress?.current?.toString() ?? "");
+  const [progressTotal, setProgressTotal] = useState<string>(editItem?.progress?.total?.toString() ?? "");
 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
