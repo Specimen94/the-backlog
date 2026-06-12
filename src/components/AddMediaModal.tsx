@@ -69,6 +69,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
       setRating(editItem.rating);
       setShowRating(editItem.showRating);
       setDescription(editItem.description);
+      setProgressCurrent(editItem.progress?.current?.toString() ?? "");
+      setProgressTotal(editItem.progress?.total?.toString() ?? "");
       setAutoFilled(false);
     }
   }, [editItem]);
