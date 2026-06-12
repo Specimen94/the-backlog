@@ -76,15 +76,7 @@ export function UpcomingRows({ existingItems, onAdd }: Props) {
   const isAdded = (title: string) =>
     existingItems.some((i) => i.name.toLowerCase() === title.toLowerCase());
 
-  const renderRow = (label: string, items: UpcomingItem[]) => (
-    <div className="mb-8">
-      <h2 className="text-lg font-semibold text-foreground mb-3">{label}</h2>
-      <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-thin">
-        {items.map((u) => {
-          const added = isAdded(u.title);
-          return (
-            <div key={u.tmdbId} className="flex-shrink-0 w-36 group">
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted shadow-md">
+  const renderRow = (label: string, items: UpcomingItem[]) => <AutoScrollRow label={label} items={items} isAdded={isAdded} onAdd={onAdd} />;
                 {u.coverUrl ? (
                   <img src={u.coverUrl} alt={u.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                 ) : (
