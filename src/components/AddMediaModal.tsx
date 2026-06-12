@@ -349,6 +349,35 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
             </div>
           </div>
 
+          {/* Progress (per-category) */}
+          {category && hasProgress(category) && (
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">
+                Progress <span className="text-muted-foreground/60">({PROGRESS_UNITS[category]!.unit})</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={progressCurrent}
+                  onChange={(e) => setProgressCurrent(e.target.value)}
+                  placeholder="0"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground w-24"
+                />
+                <span className="text-muted-foreground text-sm">of</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={progressTotal}
+                  onChange={(e) => setProgressTotal(e.target.value)}
+                  placeholder="total (optional)"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground w-40"
+                />
+                <span className="text-muted-foreground text-xs">{PROGRESS_UNITS[category]!.unitShort}</span>
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">Description</label>
