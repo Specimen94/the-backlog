@@ -80,6 +80,27 @@ export function MediaCard({ item, onStatusChange, onDelete, onClick }: MediaCard
           <div className="p-2.5">
             <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">{getStatusLabel(item.status, item.category)}</p>
+            {item.progress && PROGRESS_UNITS[item.category] && (
+              <div className="mt-1.5">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+                  <span>
+                    {item.progress.current}
+                    {item.progress.total ? ` / ${item.progress.total}` : ""} {PROGRESS_UNITS[item.category]!.unitShort}
+                  </span>
+                  {item.progress.total ? (
+                    <span>{Math.min(100, Math.round((item.progress.current / item.progress.total) * 100))}%</span>
+                  ) : null}
+                </div>
+                {item.progress.total ? (
+                  <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary"
+                      style={{ width: `${Math.min(100, (item.progress.current / item.progress.total) * 100)}%` }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
       </div>
