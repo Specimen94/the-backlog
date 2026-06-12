@@ -67,6 +67,62 @@ export function MediaDetailModal({ item, open, onClose, onEdit, onDelete, onDrop
               </div>
             </div>
 
+            {/* Progress */}
+            {PROGRESS_UNITS[item.category] && onUpdateProgress && (() => {
+              const unit = PROGRESS_UNITS[item.category]!;
+              const cur = item.progress?.current ?? 0;
+              const total = item.progress?.total ?? null;
+              const pct = total ? Math.min(100, (cur / total) * 100) : null;
+              const bump = (delta: number) =>
+                onUpdateProgress(item.id, Math.max(0, cur + delta), total);
+              return (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-foreground">Progress</h3>
+                    <span className="text-xs text-muted-foreground">
+                      {cur}{total !== null ? ` / ${total}` : ""} {unit.unit}
+                      {pct !== null ? ` · ${Math.round(pct)}%` : ""}
+                    </span>
+                  </div>
+                  {pct !== null && (
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="border-border h-7 px-2"
+                      onClick={() => bump(-1)} disabled={cur <= 0}>
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={cur}
+                      onChange={(e) => onUpdateProgress(item.id, Math.max(0, parseFloat(e.target.value) || 0), total)}
+                      className="bg-muted border-border text-foreground h-7 w-20 text-sm"
+                    />
+                    <Button size="sm" variant="outline" className="border-border h-7 px-2"
+                      onClick={() => bump(1)}>
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground">of</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={total ?? ""}
+                      placeholder="total"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        onUpdateProgress(item.id, cur, v === "" ? null : Math.max(0, parseFloat(v) || 0));
+                      }}
+                      className="bg-muted border-border text-foreground h-7 w-24 text-sm"
+                    />
+                    <span className="text-xs text-muted-foreground">{unit.unitShort}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Description */}
             {item.description && (
               <div>
