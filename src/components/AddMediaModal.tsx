@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MediaCategory, MediaStatus, ALL_CATEGORIES, CATEGORY_LABELS, getStatusLabel } from "@/types/media";
+import { MediaCategory, MediaStatus, MediaProgress, ALL_CATEGORIES, CATEGORY_LABELS, getStatusLabel, PROGRESS_UNITS, hasProgress } from "@/types/media";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,7 @@ interface AddMediaModalProps {
     rating: number | null;
     showRating: boolean;
     description: string;
+    progress?: MediaProgress;
   }) => void;
   editItem?: {
     name: string;
@@ -28,6 +29,7 @@ interface AddMediaModalProps {
     rating: number | null;
     showRating: boolean;
     description: string;
+    progress?: MediaProgress;
   } | null;
 }
 
@@ -43,6 +45,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
   const [rating, setRating] = useState<number | null>(editItem?.rating ?? null);
   const [showRating, setShowRating] = useState(editItem?.showRating ?? true);
   const [description, setDescription] = useState(editItem?.description || "");
+  const [progressCurrent, setProgressCurrent] = useState<string>(editItem?.progress?.current?.toString() ?? "");
+  const [progressTotal, setProgressTotal] = useState<string>(editItem?.progress?.total?.toString() ?? "");
 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -65,6 +69,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
       setRating(editItem.rating);
       setShowRating(editItem.showRating);
       setDescription(editItem.description);
+      setProgressCurrent(editItem.progress?.current?.toString() ?? "");
+      setProgressTotal(editItem.progress?.total?.toString() ?? "");
       setAutoFilled(false);
     }
   }, [editItem]);
@@ -138,6 +144,17 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
 
   const handleSubmit = () => {
     if (!name.trim() || !category) return;
+    let progress: MediaProgress | undefined;
+    if (hasProgress(category)) {
+      const cur = parseFloat(progressCurrent);
+      const tot = parseFloat(progressTotal);
+      if (!Number.isNaN(cur) || !Number.isNaN(tot)) {
+        progress = {
+          current: Number.isNaN(cur) ? 0 : Math.max(0, cur),
+          total: Number.isNaN(tot) ? null : Math.max(0, tot),
+        };
+      }
+    }
     onAdd({
       name: name.trim(),
       coverUrl: coverUrl.trim(),
@@ -146,6 +163,7 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
       rating,
       showRating,
       description: description.trim(),
+      progress,
     });
     resetForm();
     onClose();
@@ -159,6 +177,8 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
     setRating(null);
     setShowRating(true);
     setDescription("");
+    setProgressCurrent("");
+    setProgressTotal("");
     setSearchResults([]);
     setShowDropdown(false);
     setAutoFilled(false);
@@ -328,6 +348,35 @@ export function AddMediaModal({ open, onClose, onAdd, editItem }: AddMediaModalP
               {rating !== null && <span className="text-sm text-rating self-center ml-1">{rating}/10</span>}
             </div>
           </div>
+
+          {/* Progress (per-category) */}
+          {category && hasProgress(category) && (
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">
+                Progress <span className="text-muted-foreground/60">({PROGRESS_UNITS[category]!.unit})</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={progressCurrent}
+                  onChange={(e) => setProgressCurrent(e.target.value)}
+                  placeholder="0"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground w-24"
+                />
+                <span className="text-muted-foreground text-sm">of</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={progressTotal}
+                  onChange={(e) => setProgressTotal(e.target.value)}
+                  placeholder="total (optional)"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground w-40"
+                />
+                <span className="text-muted-foreground text-xs">{PROGRESS_UNITS[category]!.unitShort}</span>
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <div>
