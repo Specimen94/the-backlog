@@ -178,6 +178,10 @@ const Index = () => {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onDrop={(id) => { updateStatus(id, "dropped"); setDetailItem(null); }}
+        onUpdateProgress={(id, current, total) => {
+          updateItem(id, { progress: { current, total } });
+          setDetailItem((prev) => prev && prev.id === id ? { ...prev, progress: { current, total } } : prev);
+        }}
       />
 
       <LayoutsPanel
