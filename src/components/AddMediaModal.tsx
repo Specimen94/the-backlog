@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MediaCategory, MediaStatus, ALL_CATEGORIES, CATEGORY_LABELS, getStatusLabel } from "@/types/media";
+import { MediaCategory, MediaStatus, MediaProgress, ALL_CATEGORIES, CATEGORY_LABELS, getStatusLabel, PROGRESS_UNITS, hasProgress } from "@/types/media";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
