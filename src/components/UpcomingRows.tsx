@@ -1,7 +1,46 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UpcomingItem, getOnAirTV, getUpcomingMovies, tmdbEnabled, upcomingToMediaItem } from "@/lib/tmdb";
 import { Plus, Check, Loader2 } from "lucide-react";
 import { MediaItem } from "@/types/media";
+
+function useIdleAutoScroll() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let dir = 1;
+    let raf = 0;
+    let paused = false;
+    let idleTimer: number | undefined;
+    const SPEED = 0.3; // px per frame (~18px/s)
+
+    const pause = () => {
+      paused = true;
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { paused = false; }, 2000);
+    };
+
+    const tick = () => {
+      if (!paused && el.scrollWidth > el.clientWidth + 1) {
+        el.scrollLeft += SPEED * dir;
+        const max = el.scrollWidth - el.clientWidth;
+        if (el.scrollLeft >= max - 0.5) dir = -1;
+        else if (el.scrollLeft <= 0.5) dir = 1;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    const events = ["mouseenter", "wheel", "touchstart", "pointerdown"];
+    events.forEach((e) => el.addEventListener(e, pause, { passive: true }));
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(idleTimer);
+      events.forEach((e) => el.removeEventListener(e, pause));
+    };
+  }, []);
+  return ref;
+}
 
 interface Props {
   existingItems: MediaItem[];
