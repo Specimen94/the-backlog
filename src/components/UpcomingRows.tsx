@@ -42,6 +42,48 @@ function useIdleAutoScroll() {
   return ref;
 }
 
+interface RowProps {
+  label: string;
+  items: UpcomingItem[];
+  isAdded: (title: string) => boolean;
+  onAdd: (data: Omit<MediaItem, "id" | "dateAdded">) => void;
+}
+
+function AutoScrollRow({ label, items, isAdded, onAdd }: RowProps) {
+  const scrollRef = useIdleAutoScroll();
+  return (
+    <div className="mb-8">
+      <h2 className="text-lg font-semibold text-foreground mb-3">{label}</h2>
+      <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-thin">
+        {items.map((u) => {
+          const added = isAdded(u.title);
+          return (
+            <div key={u.tmdbId} className="flex-shrink-0 w-36 group">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted shadow-md">
+                {u.coverUrl ? (
+                  <img src={u.coverUrl} alt={u.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No image</div>
+                )}
+                <button
+                  onClick={() => !added && onAdd(upcomingToMediaItem(u))}
+                  disabled={added}
+                  className="absolute bottom-2 right-2 p-1.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 disabled:bg-status-finished disabled:cursor-default transition-colors"
+                  title={added ? "Already in your back-log" : "Add to back-log"}
+                >
+                  {added ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-xs text-foreground mt-1.5 line-clamp-2 leading-tight">{u.title}</p>
+              {u.releaseDate && <p className="text-[10px] text-muted-foreground">{u.releaseDate}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   existingItems: MediaItem[];
   onAdd: (data: Omit<MediaItem, "id" | "dateAdded">) => void;
