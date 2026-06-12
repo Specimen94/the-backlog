@@ -76,28 +76,8 @@ export function UpcomingRows({ existingItems, onAdd }: Props) {
   const isAdded = (title: string) =>
     existingItems.some((i) => i.name.toLowerCase() === title.toLowerCase());
 
-  const renderRow = (label: string, items: UpcomingItem[]) => <AutoScrollRow label={label} items={items} isAdded={isAdded} onAdd={onAdd} />;
-                {u.coverUrl ? (
-                  <img src={u.coverUrl} alt={u.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No image</div>
-                )}
-                <button
-                  onClick={() => !added && onAdd(upcomingToMediaItem(u))}
-                  disabled={added}
-                  className="absolute bottom-2 right-2 p-1.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 disabled:bg-status-finished disabled:cursor-default transition-colors"
-                  title={added ? "Already in your back-log" : "Add to back-log"}
-                >
-                  {added ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              <p className="text-xs text-foreground mt-1.5 line-clamp-2 leading-tight">{u.title}</p>
-              {u.releaseDate && <p className="text-[10px] text-muted-foreground">{u.releaseDate}</p>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+  const renderRow = (label: string, items: UpcomingItem[]) => (
+    <AutoScrollRow label={label} items={items} isAdded={isAdded} onAdd={onAdd} />
   );
 
   if (loading) {
